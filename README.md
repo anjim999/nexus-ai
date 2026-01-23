@@ -1,4 +1,4 @@
-# 🧠 AI Ops Engineer
+# 🧠 Nexus AI
 
 ### Autonomous Business Intelligence Agent
 
@@ -14,7 +14,7 @@
 
 ## 🎯 What is This?
 
-**AI Ops Engineer** is a production-ready, multi-agent AI system that:
+**Nexus AI** is a production-ready, multi-agent AI system that:
 
 - 📄 **Reads** your business documents (PDFs, CSVs, databases)
 - 🔍 **Understands** context using RAG (Retrieval-Augmented Generation)
@@ -128,8 +128,8 @@
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/ai-ops-engineer.git
-cd ai-ops-engineer
+git clone https://github.com/anjim999/nexus-ai.git
+cd nexus-ai
 ```
 
 ### 2. Backend Setup
@@ -160,7 +160,7 @@ npm run dev
 ## 📁 Project Structure
 
 ```
-ai-ops-engineer/
+nexus-ai/
 ├── backend/           # FastAPI + AI Agents
 │   ├── app/
 │   │   ├── api/       # REST endpoints
