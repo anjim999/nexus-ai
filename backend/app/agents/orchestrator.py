@@ -96,8 +96,9 @@ class AgentOrchestrator:
         self.reasoning_agent = ReasoningAgent(self.llm)
         self.action_agent = ActionAgent(self.llm)
         
-        # Conversation memory
-        self.conversations: Dict[str, List[Dict]] = {}
+        # Database repository
+        from app.database.repositories.chat import chat_repo
+        self.chat_repo = chat_repo
     
     async def process_query(
         self,
@@ -149,8 +150,13 @@ class AgentOrchestrator:
                 action_step = await self._run_action_agent(state)
                 state.agent_steps.append(action_step)
             
-            # Store in conversation memory
-            self._save_to_memory(conversation_id, query, state.final_response)
+            # Store in database
+            await self._save_to_memory(
+                conversation_id, 
+                query, 
+                state.final_response,
+                state
+            )
             
             # Build response
             return {
@@ -431,27 +437,46 @@ class AgentOrchestrator:
         
         return analysis.get("output_type") in ["report", "action"]
     
-    def _save_to_memory(self, conversation_id: str, query: str, response: str):
-        """Save exchange to conversation memory"""
-        if conversation_id not in self.conversations:
-            self.conversations[conversation_id] = []
+    async def _save_to_memory(
+        self, 
+        conversation_id: str, 
+        query: str, 
+        response: str,
+        state: OrchestratorState
+    ):
+        """Save exchange to database"""
+        # Save User Message
+        await self.chat_repo.add_message(
+            conversation_id=conversation_id,
+            role="user",
+            content=query
+        )
         
-        self.conversations[conversation_id].append({
-            "role": "user",
-            "content": query,
-            "timestamp": datetime.now().isoformat()
-        })
-        self.conversations[conversation_id].append({
-            "role": "assistant",
-            "content": response,
-            "timestamp": datetime.now().isoformat()
-        })
+        # Format agent steps for storage
+        steps_data = [
+            {
+                "agent": step.agent,
+                "status": step.status.value,
+                "action": step.action,
+                "duration_ms": step.duration_ms
+            }
+            for step in state.agent_steps
+        ]
+        
+        # Save Assistant Message with metadata
+        await self.chat_repo.add_message(
+            conversation_id=conversation_id,
+            role="assistant",
+            content=response,
+            sources=state.sources,
+            confidence=state.confidence,
+            agent_steps=steps_data
+        )
     
-    def get_conversation_history(self, conversation_id: str) -> List[Dict]:
-        """Get conversation history"""
-        return self.conversations.get(conversation_id, [])
+    async def get_conversation_history(self, conversation_id: str) -> List[Dict]:
+        """Get conversation history from database"""
+        return await self.chat_repo.get_history(conversation_id)
     
-    def clear_conversation(self, conversation_id: str):
-        """Clear conversation history"""
-        if conversation_id in self.conversations:
-            del self.conversations[conversation_id]
+    async def clear_conversation(self, conversation_id: str):
+        """Clear conversation history (Not implemented for DB yet to preserve data)"""
+        pass
