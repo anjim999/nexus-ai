@@ -1,0 +1,36 @@
+name: Nexus AI CD
+
+on:
+  push:
+    branches: [ "main", "stage" ]
+
+jobs:
+  deploy-stage:
+    if: github.ref == 'refs/heads/stage'
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy to Staging (Backend)
+      run: echo "Deploying backend to staging server..."
+      # Add your Render/Railway/Heroku deployment commands here
+      
+    - name: Deploy to Staging (Frontend)
+      run: echo "Deploying frontend to Vercel/Netlify staging..."
+      # Add your Vercel/Netlify deployment commands here
+
+  deploy-prod:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy to Production (Backend)
+      run: echo "Deploying backend to production server..."
+      
+    - name: Deploy to Production (Frontend)
+      run: echo "Deploying frontend to Vercel/Netlify production..."
