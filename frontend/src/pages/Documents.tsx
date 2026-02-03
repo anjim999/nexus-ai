@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Upload,
     FileText,
@@ -60,6 +60,7 @@ const formatDate = (dateString: string) => {
 };
 
 const Documents = () => {
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [documents, setDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
@@ -240,18 +241,20 @@ const Documents = () => {
                 </p>
                 <p className="text-sm text-muted-foreground mb-4">or click to browse</p>
                 <input
+                    ref={fileInputRef}
                     type="file"
                     multiple
                     accept=".pdf,.txt,.csv,.docx,.json"
                     onChange={handleFileSelect}
                     className="hidden"
-                    id="file-upload"
                 />
-                <label htmlFor="file-upload">
-                    <Button variant="outline" className="cursor-pointer">
-                        Select Files
-                    </Button>
-                </label>
+                <Button 
+                    variant="outline" 
+                    className="cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
+                >
+                    Select Files
+                </Button>
                 <p className="text-xs text-muted-foreground mt-4">
                     Supported: PDF, TXT, CSV, DOCX, JSON (Max 10MB)
                 </p>
@@ -298,10 +301,10 @@ const Documents = () => {
                                     </div>
                                     <div className="flex items-center justify-between mt-3">
                                         <Badge
-                                            variant={doc.status === 'processed' ? 'success' : 'warning'}
+                                            variant={(doc.status === 'processed' || doc.status === 'indexed') ? 'success' : 'warning'}
                                             size="sm"
                                         >
-                                            {doc.status === 'processed' ? (
+                                            {(doc.status === 'processed' || doc.status === 'indexed') ? (
                                                 <CheckCircle2 className="w-3 h-3 mr-1" />
                                             ) : (
                                                 <Clock className="w-3 h-3 mr-1" />
@@ -335,7 +338,7 @@ const Documents = () => {
                                             {formatFileSize(doc.size_bytes)} • {doc.chunk_count} chunks • {formatDate(doc.uploaded_at)}
                                         </p>
                                     </div>
-                                    <Badge variant={doc.status === 'processed' ? 'success' : 'warning'} size="sm">
+                                    <Badge variant={(doc.status === 'processed' || doc.status === 'indexed') ? 'success' : 'warning'} size="sm">
                                         {doc.status}
                                     </Badge>
                                     <button

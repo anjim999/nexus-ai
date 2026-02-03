@@ -60,20 +60,12 @@ class GeminiClient:
     async def generate(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        temperature: Optional[float] = None
+        system_prompt: Optional[str] = None
     ) -> str:
         """
         Generate text response from prompt
-        
-        Args:
-            prompt: User prompt
-            system_prompt: Optional system instructions
-            temperature: Optional temperature override
-            
-        Returns:
-            Generated text response
         """
+        print(f"--- Gemini Generating with model: {settings.LLM_MODEL} ---")
         try:
             # Build full prompt
             full_prompt = ""
@@ -90,6 +82,13 @@ class GeminiClient:
             return response.text
             
         except Exception as e:
+            import traceback
+            error_msg = traceback.format_exc()
+            with open("last_gemini_error.txt", "w", encoding="utf-8") as f:
+                f.write(error_msg)
+            print(f"============== GEMINI ERROR ==============")
+            print(error_msg)
+            print(f"==========================================")
             raise LLMException(f"Generation failed: {str(e)}")
     
     # ========================================

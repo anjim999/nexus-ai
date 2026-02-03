@@ -126,7 +126,8 @@ async def upload_document(
             metadata={
                 "filename": file.filename,
                 "description": description,
-                "file_type": file_ext
+                "file_type": file_ext,
+                "size_bytes": len(content)
             }
         )
     except Exception as e:

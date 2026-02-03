@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./data/uploads"
     
     # ==================== LLM SETTINGS ====================
-    LLM_MODEL: str = "gemini-pro"
+    LLM_MODEL: str = "models/gemini-2.5-flash"
     LLM_TEMPERATURE: float = 0.7
     LLM_MAX_TOKENS: int = 2048
     

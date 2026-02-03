@@ -348,6 +348,8 @@ class AgentOrchestrator:
         except Exception as e:
             step.status = AgentState.ERROR
             step.observation = str(e)
+            step.action = f"Error: {str(e)}"
+            print(f"Reasoning Agent Error: {e}")  # Log to console
             state.final_response = "I was unable to process your request."
         
         step.duration_ms = int((time.time() - start) * 1000)

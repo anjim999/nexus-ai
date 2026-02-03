@@ -173,13 +173,13 @@ class VectorStore:
         Returns:
             List of matching documents with scores
         """
-        from app.rag.embeddings import get_embedding
+        from app.rag.embeddings import get_query_embedding
         
         if self.index is None or self.index.ntotal == 0:
             return []
         
         # Get query embedding
-        query_embedding = await get_embedding(query)
+        query_embedding = await get_query_embedding(query)
         query_np = np.array([query_embedding]).astype('float32')
         faiss.normalize_L2(query_np)
         

@@ -45,12 +45,22 @@ class ResearchAgent:
         Returns:
             Search results with documents and summary
         """
+        print(f"\n🔍 Research Agent Searching: '{query}'")
         # Get relevant documents
-        documents = await self.retriever.retrieve(
-            query=query,
-            top_k=top_k,
-            file_filter=file_filter
-        )
+        try:
+            documents = await self.retriever.retrieve(
+                query=query,
+                top_k=top_k,
+                file_filter=file_filter
+            )
+        except Exception as e:
+            print(f"Research Agent Retrieval Error: {e}")
+            return {
+                "documents": [],
+                "sources": [],
+                "summary": f"Search failed due to an error: {str(e)}",
+                "confidence": 0.0
+            }
         
         if not documents:
             return {

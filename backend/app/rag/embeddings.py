@@ -29,15 +29,14 @@ async def get_embedding(text: str) -> List[float]:
     try:
         result = await asyncio.to_thread(
             genai.embed_content,
-            model="models/embedding-001",
+            model="models/text-embedding-004",
             content=text,
             task_type="retrieval_document"
         )
         return result['embedding']
     except Exception as e:
         print(f"Embedding error: {e}")
-        # Return zero vector as fallback
-        return [0.0] * 768
+        raise e
 
 
 async def get_embeddings(texts: List[str], batch_size: int = 100) -> List[List[float]]:
@@ -78,14 +77,14 @@ async def get_query_embedding(query: str) -> List[float]:
     try:
         result = await asyncio.to_thread(
             genai.embed_content,
-            model="models/embedding-001",
+            model="models/text-embedding-004",
             content=query,
             task_type="retrieval_query"
         )
         return result['embedding']
     except Exception as e:
         print(f"Query embedding error: {e}")
-        return [0.0] * 768
+        raise e
 
 
 def calculate_similarity(embedding1: List[float], embedding2: List[float]) -> float:

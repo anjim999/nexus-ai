@@ -1,0 +1,18 @@
+
+Project Plan: "Green Earth" Initiative
+
+Goal: Reduce company carbon footprint by 30% by 2025.
+
+Phase 1: Audit (Month 1-2)
+- Action: Hire external consultant to measure current emissions.
+- Budget: $15,000
+- Owner: Sarah Jenkins
+
+Phase 2: Implementation (Month 3-8)
+- Action: Switch office energy to sold sources.
+- Action: Implement remote-first work policy (reducing commute emissions).
+- Budget: $50,000
+
+Phase 3: Review (Month 9)
+- Action: Measure reduction against baseline.
+- Action: Publish sustainability report.
