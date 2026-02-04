@@ -1,8 +1,10 @@
 import { Bell, Search, Moon, Sun } from 'lucide-react';
 import { useState } from 'react';
 
+import { useTheme } from '../theme-provider';
+
 const Navbar = () => {
-    const [isDark, setIsDark] = useState(true);
+    const { theme, setTheme } = useTheme();
 
     return (
         <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-6">
@@ -25,20 +27,26 @@ const Navbar = () => {
             <div className="flex items-center gap-2 ml-4">
                 {/* Theme Toggle */}
                 <button
-                    onClick={() => setIsDark(!isDark)}
+                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                     className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                 >
-                    {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                    {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                 </button>
 
                 {/* Notifications */}
-                <button className="relative p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                <button
+                    onClick={() => window.location.href = '/notifications'}
+                    className="relative p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                >
                     <Bell className="w-5 h-5" />
                     <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
                 </button>
 
                 {/* User Avatar */}
-                <button className="ml-2 flex items-center gap-3 p-1.5 rounded-lg hover:bg-muted transition-colors">
+                <button
+                    onClick={() => window.location.href = '/settings'}
+                    className="ml-2 flex items-center gap-3 p-1.5 rounded-lg hover:bg-muted transition-colors"
+                >
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
                         A
                     </div>
