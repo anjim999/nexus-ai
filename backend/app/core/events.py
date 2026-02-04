@@ -9,6 +9,7 @@ import logging
 from app.config import settings, validate_settings, ensure_directories
 from app.database.connection import init_database
 from app.rag.vectorstore import init_vector_store
+from app.database.seed import seed_database_if_empty
 
 # Setup logging
 logging.basicConfig(
@@ -39,7 +40,10 @@ async def startup_handler():
     await init_database()
     logger.info("✅ Database initialized")
     
-    # 4. Initialize vector store
+    # 4. Auto-seed if empty
+    await seed_database_if_empty()
+    
+    # 5. Initialize vector store
     await init_vector_store()
     logger.info("✅ Vector store initialized")
     
