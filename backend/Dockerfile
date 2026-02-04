@@ -1,5 +1,10 @@
 FROM python:3.11-slim
 
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+ENV PATH="/home/appuser/.local/bin:${PATH}"
+
 WORKDIR /app
 
 # Install system dependencies
@@ -8,15 +13,22 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Create a non-root user and set up home directory
+RUN useradd -m -u 1000 appuser && \
+    mkdir -p /app/data/vectorstore /app/data/uploads /app/logs && \
+    chown -R appuser:appuser /app
+
+# Switch to the non-root user
+USER appuser
+
 # Copy requirements first for caching
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY --chown=appuser:appuser requirements.txt .
+
+# Install dependencies as the non-root user
+RUN pip install --user --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY . .
-
-# Create data directories
-RUN mkdir -p data/vectorstore data/uploads
+COPY --chown=appuser:appuser . .
 
 # Expose port
 EXPOSE 8000
@@ -25,5 +37,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the application using python -m to ensure path resolution
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
