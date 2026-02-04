@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Optional, List
 from sqlalchemy import (
     String, Text, Integer, Float, Boolean, DateTime, 
-    ForeignKey, JSON, Enum as SQLEnum
+    ForeignKey, JSON, Enum as SQLEnum, Date
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
@@ -169,6 +169,66 @@ class AgentLog(Base):
     confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     duration_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+# ========================================
+# Business Data Models (For Analyst Agent)
+# ========================================
+
+class Customer(Base):
+    """Business Customer"""
+    __tablename__ = "customers"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(200))
+    email: Mapped[str] = mapped_column(String(200))
+    segment: Mapped[str] = mapped_column(String(50)) # Enterprise, SMB, Startup
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_purchase: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+
+class Product(Base):
+    """Business Product"""
+    __tablename__ = "products"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(200))
+    category: Mapped[str] = mapped_column(String(50))
+    price: Mapped[float] = mapped_column(Float)
+    cost: Mapped[float] = mapped_column(Float)
+    inventory: Mapped[int] = mapped_column(Integer)
+
+
+class Sale(Base):
+    """Sales Transaction"""
+    __tablename__ = "sales"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    customer_id: Mapped[int] = mapped_column(Integer, ForeignKey("customers.id"))
+    product_id: Mapped[int] = mapped_column(Integer, ForeignKey("products.id"))
+    amount: Mapped[float] = mapped_column(Float)
+    quantity: Mapped[int] = mapped_column(Integer)
+    region: Mapped[str] = mapped_column(String(50))
+    date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    customer: Mapped["Customer"] = relationship("Customer")
+    product: Mapped["Product"] = relationship("Product")
+
+
+class SupportTicket(Base):
+    """Customer Support Ticket"""
+    __tablename__ = "support_tickets"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    customer_id: Mapped[int] = mapped_column(Integer, ForeignKey("customers.id"))
+    subject: Mapped[str] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(20)) # open, resolved, pending
+    priority: Mapped[str] = mapped_column(String(20)) # low, medium, high
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
+    # Relationships
+    customer: Mapped["Customer"] = relationship("Customer")
 
 
 class BusinessMetric(Base):

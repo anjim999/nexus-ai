@@ -27,11 +27,17 @@ class Base(DeclarativeBase):
 database_url = settings.DATABASE_URL
 if database_url.startswith("sqlite:///"):
     database_url = database_url.replace("sqlite:///", "sqlite+aiosqlite:///")
+elif database_url.startswith("postgresql://"):
+    database_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
 
 engine = create_async_engine(
     database_url,
     echo=settings.DEBUG,
-    future=True
+    future=True,
+    pool_pre_ping=True,  # Check connection health before using
+    pool_recycle=300,    # Recycle connections after 5 minutes
+    pool_size=5,         # Connection pool size
+    max_overflow=10,     # Max extra connections beyond pool_size
 )
 
 # Session factory
@@ -80,7 +86,12 @@ async def init_database():
             Document,
             Insight,
             Report,
-            ScheduledTask
+            ScheduledTask,
+            Customer,
+            Product,
+            Sale,
+            SupportTicket,
+            BusinessMetric
         )
         
         # Create all tables

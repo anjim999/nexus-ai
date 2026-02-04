@@ -9,31 +9,38 @@ import {
     ChevronDown,
     FileText,
     Database,
-    ExternalLink,
     Copy,
     Check,
+    BarChart3,
+    CheckCircle2
 } from 'lucide-react';
+import {
+    LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+    XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+} from 'recharts';
 import { Card, Button, Badge } from '../components/ui';
 import { clsx } from 'clsx';
-import api from '../services/api';
+import { chatService } from '../services/chatService';
+import type { ChatResponse } from '../services/chatService';
 
 interface Message {
     id: string;
     role: 'user' | 'assistant';
     content: string;
     timestamp: Date;
-    sources?: { type: string; name: string; page?: number }[];
+    sources?: ChatResponse['sources'];
     confidence?: number;
-    agentSteps?: { agent: string; status: string; action?: string }[];
+    agentSteps?: ChatResponse['agent_steps'];
+    charts?: ChatResponse['charts'];
+    actionsTaken?: string[];
 }
 
 const suggestedQuestions = [
-    "Why did revenue change last week?",
-    "Summarize the latest performance report",
+    "What are the top 5 most expensive products?",
+    "Show me the sales trend for the last week",
     "Which customers are at risk of churning?",
-    "What should we focus on this week?",
-    "Show me the sales trend for this month",
-    "Are there any anomalies in recent data?",
+    "Schedule a sales report for next Monday",
+    "Analyze the support tickets status",
 ];
 
 const Chat = () => {
@@ -69,13 +76,12 @@ const Chat = () => {
         setLoading(true);
 
         try {
-            const response = await api.post('/chat/', {
+            const data = await chatService.sendMessage({
                 message: userMessage.content,
                 conversation_id: conversationId,
                 include_sources: true,
             });
 
-            const data = response.data;
             setConversationId(data.conversation_id);
 
             const assistantMessage: Message = {
@@ -86,6 +92,8 @@ const Chat = () => {
                 sources: data.sources,
                 confidence: data.confidence,
                 agentSteps: data.agent_steps,
+                charts: data.charts,
+                actionsTaken: data.actions_taken
             };
 
             setMessages((prev) => [...prev, assistantMessage]);
@@ -119,6 +127,59 @@ const Chat = () => {
         navigator.clipboard.writeText(text);
         setCopiedId(id);
         setTimeout(() => setCopiedId(null), 2000);
+    };
+
+    const renderChart = (chart: NonNullable<ChatResponse['charts']>[0]) => {
+        const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#00C49F'];
+
+        return (
+            <div className="mt-4 p-4 bg-muted/30 rounded-xl border border-border">
+                <h4 className="text-sm font-medium mb-4 flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-primary" />
+                    {chart.title}
+                </h4>
+                <div className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                        {chart.chart_type === 'bar' ? (
+                            <BarChart data={chart.data}>
+                                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                                <XAxis dataKey={chart.x_axis} fontSize={12} />
+                                <YAxis fontSize={12} />
+                                <Tooltip />
+                                <Bar dataKey={chart.y_axis} fill="#8884d8" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        ) : chart.chart_type === 'pie' ? (
+                            <PieChart>
+                                <Pie
+                                    data={chart.data}
+                                    cx="50%"
+                                    cy="50%"
+                                    labelLine={false}
+                                    label={({ name, percent }: { name?: string; percent?: number }) => `${name || 'Unknown'} ${percent ? (percent * 100).toFixed(0) : 0}%`}
+                                    outerRadius={80}
+                                    fill="#8884d8"
+                                    dataKey={chart.y_axis}
+                                    nameKey={chart.x_axis}
+                                >
+                                    {chart.data.map((_entry: any, index: number) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                            </PieChart>
+                        ) : (
+                            <LineChart data={chart.data}>
+                                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                                <XAxis dataKey={chart.x_axis} fontSize={12} />
+                                <YAxis fontSize={12} />
+                                <Tooltip />
+                                <Line type="monotone" dataKey={chart.y_axis} stroke="#8884d8" strokeWidth={2} dot={{ r: 4 }} />
+                            </LineChart>
+                        )}
+                    </ResponsiveContainer>
+                </div>
+            </div>
+        );
     };
 
     return (
@@ -206,7 +267,28 @@ const Chat = () => {
 
                                     {/* Assistant extras */}
                                     {message.role === 'assistant' && (
-                                        <div className="mt-3 space-y-2">
+                                        <div className="mt-3 space-y-3">
+
+                                            {/* Actions Taken */}
+                                            {message.actionsTaken && message.actionsTaken.length > 0 && (
+                                                <div className="flex flex-col gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                                                    <p className="text-xs font-semibold text-green-700 dark:text-green-400 mb-1">Actions Executed:</p>
+                                                    {message.actionsTaken.map((action, idx) => (
+                                                        <div key={idx} className="flex items-center gap-2 text-sm text-green-800 dark:text-green-300">
+                                                            <CheckCircle2 className="w-4 h-4" />
+                                                            <span>{action}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Charts */}
+                                            {message.charts && message.charts.map((chart, idx) => (
+                                                <div key={idx} className="w-full">
+                                                    {renderChart(chart)}
+                                                </div>
+                                            ))}
+
                                             {/* Confidence */}
                                             {message.confidence && (
                                                 <div className="flex items-center gap-2">
@@ -239,8 +321,7 @@ const Chat = () => {
                                                             ) : (
                                                                 <Database className="w-3.5 h-3.5" />
                                                             )}
-                                                            <span>{source.name}</span>
-                                                            {source.page && <span className="text-muted-foreground/60">p.{source.page}</span>}
+                                                            <span>{source.name || "Database"}</span>
                                                         </div>
                                                     ))}
                                                 </div>

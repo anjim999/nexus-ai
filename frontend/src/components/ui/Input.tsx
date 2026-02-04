@@ -1,4 +1,5 @@
-import { InputHTMLAttributes, forwardRef, ReactNode } from 'react';
+import { type InputHTMLAttributes, forwardRef } from 'react';
+import type { ReactNode } from 'react';
 import { clsx } from 'clsx';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {

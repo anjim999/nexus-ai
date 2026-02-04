@@ -10,6 +10,11 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime, timedelta
 from enum import Enum
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func, desc
+
+from app.dependencies import get_db
+from app.database.models import Sale, Customer, SupportTicket, Insight, ScheduledTask
 
 router = APIRouter()
 
@@ -105,111 +110,186 @@ class InsightRequest(BaseModel):
 # ========================================
 @router.get("/dashboard", response_model=DashboardData)
 async def get_dashboard_data(
-    time_range: TimeRange = Query(default=TimeRange.WEEK)
+    time_range: TimeRange = Query(default=TimeRange.WEEK),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Get all dashboard data including metrics, alerts, and AI insights.
     """
-    # Sample data - in production, this would come from actual data sources
+    now = datetime.utcnow()
+    
+    # 1. Determine Date Range
+    if time_range == TimeRange.TODAY:
+        start_date = now - timedelta(days=1)
+        prev_start_date = now - timedelta(days=2)
+    elif time_range == TimeRange.WEEK:
+        start_date = now - timedelta(weeks=1)
+        prev_start_date = now - timedelta(weeks=2)
+    elif time_range == TimeRange.MONTH:
+        start_date = now - timedelta(days=30)
+        prev_start_date = now - timedelta(days=60)
+    elif time_range == TimeRange.QUARTER:
+        start_date = now - timedelta(days=90)
+        prev_start_date = now - timedelta(days=180)
+    else: # YEAR
+        start_date = now - timedelta(days=365)
+        prev_start_date = now - timedelta(days=730)
+
+    # 2. Fetch Metrics
+    
+    # Revenue
+    revenue_query = select(func.sum(Sale.amount)).where(Sale.date >= start_date)
+    revenue_result = await db.execute(revenue_query)
+    current_revenue = revenue_result.scalar() or 0.0
+
+    prev_revenue_query = select(func.sum(Sale.amount)).where(Sale.date >= prev_start_date, Sale.date < start_date)
+    prev_revenue_result = await db.execute(prev_revenue_query)
+    prev_revenue = prev_revenue_result.scalar() or 0.0
+    
+    revenue_change = ((current_revenue - prev_revenue) / prev_revenue * 100) if prev_revenue > 0 else 0.0
+    revenue_trend = TrendDirection.UP if revenue_change > 0 else (TrendDirection.DOWN if revenue_change < 0 else TrendDirection.STABLE)
+
+    # Customers
+    total_customers_query = select(func.count(Customer.id))
+    total_customers_result = await db.execute(total_customers_query)
+    total_customers = total_customers_result.scalar() or 0
+
+    new_cust_query = select(func.count(Customer.id)).where(Customer.created_at >= start_date)
+    new_cust_result = await db.execute(new_cust_query)
+    new_customers = new_cust_result.scalar() or 0
+    
+    prev_cust_query = select(func.count(Customer.id)).where(Customer.created_at >= prev_start_date, Customer.created_at < start_date)
+    prev_cust_result = await db.execute(prev_cust_query)
+    prev_new_customers = prev_cust_result.scalar() or 0
+
+    cust_change = ((new_customers - prev_new_customers) / prev_new_customers * 100) if prev_new_customers > 0 else 0.0
+    cust_trend = TrendDirection.UP if cust_change > 0 else (TrendDirection.DOWN if cust_change < 0 else TrendDirection.STABLE)
+
+    # Open Tickets
+    ticket_query = select(func.count(SupportTicket.id)).where(SupportTicket.status != 'resolved')
+    ticket_result = await db.execute(ticket_query)
+    open_tickets = ticket_result.scalar() or 0
+    
+    # Tickets change logic could be added effectively similar to above
+    
+    # Pending Tasks (Scheduled Tasks)
+    task_query = select(func.count(ScheduledTask.id)).where(ScheduledTask.is_active == True)
+    task_result = await db.execute(task_query)
+    active_tasks = task_result.scalar() or 0
+
+    # 3. Construct Metric Cards
+    metrics = [
+        MetricCard(
+            id="revenue",
+            title="Revenue",
+            value=f"₹{current_revenue/100000:.1f}L" if current_revenue > 100000 else f"₹{current_revenue:.0f}",
+            change=round(revenue_change, 1),
+            trend=revenue_trend,
+            period="vs last period",
+            icon="trending-up"
+        ),
+        MetricCard(
+            id="customers",
+            title="Active Customers",
+            value=f"{total_customers}",
+            change=round(cust_change, 1),
+            trend=cust_trend,
+            period="vs last period",
+            icon="users"
+        ),
+        MetricCard(
+            id="tickets",
+            title="Open Tickets",
+            value=f"{open_tickets}",
+            change=0.0, # Simplified for now
+            trend=TrendDirection.STABLE,
+            period="vs last period",
+            icon="ticket"
+        ),
+        MetricCard(
+            id="tasks",
+            title="Pending Tasks",
+            value=f"{active_tasks}",
+            change=0.0,
+            trend=TrendDirection.STABLE,
+            period="vs last period",
+            icon="clipboard"
+        )
+    ]
+
+    # 4. Fetch Insights
+    insight_query = select(Insight).order_by(desc(Insight.priority), desc(Insight.created_at)).limit(5)
+    insight_result = await db.execute(insight_query)
+    db_insights = insight_result.scalars().all()
+    
+    insights_list = [
+        AIInsight(
+            id=str(i.id),
+            title=i.title,
+            summary=i.summary,
+            details=i.details,
+            confidence=i.confidence,
+            sources=[],
+            generated_at=i.created_at,
+            category=i.category,
+            priority=1 if i.priority == "critical" else (2 if i.priority == "high" else 3)
+        ) for i in db_insights
+    ]
+
+    # 5. Fetch Alerts (High Priority Open Tickets)
+    alert_query = select(SupportTicket).where(SupportTicket.priority.in_(['high', 'critical']), SupportTicket.status == 'open').limit(5)
+    alert_result = await db.execute(alert_query)
+    high_pri_tickets = alert_result.scalars().all()
+
+    alerts_list = [
+        AlertItem(
+            id=f"ticket_{t.id}",
+            title=f"Critical: {t.subject}",
+            message=f"Ticket #{t.id} - {t.status}",
+            severity=AlertSeverity.CRITICAL if t.priority == 'critical' else AlertSeverity.WARNING,
+            timestamp=t.created_at,
+            is_read=False
+        ) for t in high_pri_tickets
+    ]
+
+    # 6. Charts (Mocked based on Real Revenue or simple aggregation)
+    # Aggregating by day in SQL for the last 7 days
+    chart_start = now - timedelta(days=7)
+    # Note: date_trunc is Postgres specific. Assuming Postgres.
+    chart_query = select(
+        Sale.date, 
+        Sale.amount
+    ).where(Sale.date >= chart_start).order_by(Sale.date)
+    
+    chart_result = await db.execute(chart_query)
+    sales_data = chart_result.all()
+    
+    # Process in python for simplicity to avoid SQL dialect issues if sqlite
+    from collections import defaultdict
+    daily_sales = defaultdict(float)
+    for s in sales_data:
+        date_str = s.date.strftime("%a")
+        daily_sales[date_str] += s.amount
+        
+    days = [(now - timedelta(days=i)).strftime("%a") for i in range(6, -1, -1)]
+    chart_data_points = [{"date": d, "value": daily_sales.get(d, 0)} for d in days]
+
+    charts_list = [
+        ChartData(
+            chart_type="line",
+            title="Revenue Trend (7 Days)",
+            data=chart_data_points,
+            x_axis="date",
+            y_axis="value"
+        )
+    ]
+
     return DashboardData(
-        metrics=[
-            MetricCard(
-                id="revenue",
-                title="Revenue",
-                value="₹12.4L",
-                change=12.5,
-                trend=TrendDirection.UP,
-                period="vs last week",
-                icon="trending-up"
-            ),
-            MetricCard(
-                id="customers",
-                title="Active Customers",
-                value="1,247",
-                change=8.3,
-                trend=TrendDirection.UP,
-                period="vs last week",
-                icon="users"
-            ),
-            MetricCard(
-                id="tickets",
-                title="Open Tickets",
-                value="47",
-                change=-15.2,
-                trend=TrendDirection.DOWN,
-                period="vs last week",
-                icon="ticket"
-            ),
-            MetricCard(
-                id="tasks",
-                title="Pending Tasks",
-                value="23",
-                change=5.0,
-                trend=TrendDirection.STABLE,
-                period="vs last week",
-                icon="clipboard"
-            )
-        ],
-        alerts=[
-            AlertItem(
-                id="alert_1",
-                title="Revenue Anomaly Detected",
-                message="Revenue dropped 25% on Tuesday compared to average",
-                severity=AlertSeverity.WARNING,
-                timestamp=datetime.now() - timedelta(hours=2),
-                is_read=False
-            ),
-            AlertItem(
-                id="alert_2",
-                title="Customer Churn Risk",
-                message="3 high-value customers showing disengagement patterns",
-                severity=AlertSeverity.CRITICAL,
-                timestamp=datetime.now() - timedelta(hours=5),
-                is_read=False
-            )
-        ],
-        insights=[
-            AIInsight(
-                id="insight_1",
-                title="Marketing Campaign Impact",
-                summary="Recent email campaign drove 35% increase in website traffic",
-                details="Analysis shows direct correlation between campaign launch and user engagement...",
-                confidence=0.89,
-                sources=["analytics_db", "marketing_report.pdf"],
-                generated_at=datetime.now() - timedelta(minutes=30),
-                category="marketing",
-                priority=2
-            ),
-            AIInsight(
-                id="insight_2",
-                title="Product Performance",
-                summary="Product A outperforming others by 40% this quarter",
-                details="Detailed analysis...",
-                confidence=0.92,
-                sources=["sales_db", "product_metrics"],
-                generated_at=datetime.now() - timedelta(hours=1),
-                category="products",
-                priority=1
-            )
-        ],
-        charts=[
-            ChartData(
-                chart_type="line",
-                title="Revenue Trend",
-                data=[
-                    {"date": "Mon", "value": 12000},
-                    {"date": "Tue", "value": 9000},
-                    {"date": "Wed", "value": 15000},
-                    {"date": "Thu", "value": 14000},
-                    {"date": "Fri", "value": 18000},
-                    {"date": "Sat", "value": 16000},
-                    {"date": "Sun", "value": 11000}
-                ],
-                x_axis="date",
-                y_axis="value"
-            )
-        ],
-        last_updated=datetime.now()
+        metrics=metrics,
+        alerts=alerts_list,
+        insights=insights_list,
+        charts=charts_list,
+        last_updated=now
     )
 
 

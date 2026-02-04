@@ -54,9 +54,9 @@ class Settings(BaseSettings):
     LLM_MAX_TOKENS: int = 2048
     
     # ==================== RAG SETTINGS ====================
-    CHUNK_SIZE: int = 1000
-    CHUNK_OVERLAP: int = 200
-    TOP_K_RESULTS: int = 5
+    CHUNK_SIZE: int = 2000
+    CHUNK_OVERLAP: int = 400
+    TOP_K_RESULTS: int = 7
     
     # ==================== AGENT SETTINGS ====================
     AGENT_MAX_ITERATIONS: int = 10

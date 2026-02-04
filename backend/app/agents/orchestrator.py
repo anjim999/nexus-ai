@@ -89,12 +89,14 @@ class AgentOrchestrator:
         from app.agents.specialized.analyst_agent import AnalystAgent
         from app.agents.specialized.reasoning_agent import ReasoningAgent
         from app.agents.specialized.action_agent import ActionAgent
+        from app.agents.specialized.scheduler_agent import SchedulerAgent
         
         # Initialize agents
         self.research_agent = ResearchAgent(self.llm, self.retriever)
         self.analyst_agent = AnalystAgent(self.llm)
         self.reasoning_agent = ReasoningAgent(self.llm)
         self.action_agent = ActionAgent(self.llm)
+        self.scheduler_agent = SchedulerAgent(self.llm)
         
         # Database repository
         from app.database.repositories.chat import chat_repo
@@ -137,7 +139,7 @@ class AgentOrchestrator:
             state.agent_steps.append(research_step)
             
             # Step 3: Analyst Agent - Query data if needed
-            if self._needs_data_analysis(query_analysis):
+            if self._needs_data_analysis(query_analysis, query):
                 analyst_step = await self._run_analyst_agent(state)
                 state.agent_steps.append(analyst_step)
             
@@ -149,6 +151,11 @@ class AgentOrchestrator:
             if self._needs_action(query_analysis):
                 action_step = await self._run_action_agent(state)
                 state.agent_steps.append(action_step)
+
+            # Step 6: Scheduler Agent - Check if scheduling is needed
+            if self._needs_scheduling(query_analysis):
+                scheduler_step = await self._run_scheduler_agent(state)
+                state.agent_steps.append(scheduler_step)
             
             # Store in database
             await self._save_to_memory(
@@ -230,7 +237,7 @@ class AgentOrchestrator:
         }
         
         # Analyst (if needed)
-        if self._needs_data_analysis(query_analysis):
+        if self._needs_data_analysis(query_analysis, query):
             yield {"type": "agent_start", "agent": "analyst", "status": "thinking"}
             analyst_step = await self._run_analyst_agent(state)
             state.agent_steps.append(analyst_step)
@@ -254,7 +261,7 @@ class AgentOrchestrator:
         yield {"type": "response_start"}
         yield {"type": "response_chunk", "content": state.final_response}
         yield {"type": "response_end", "sources": state.sources}
-    
+
     # ========================================
     # Agent Runners
     # ========================================
@@ -384,6 +391,39 @@ class AgentOrchestrator:
             step.observation = str(e)
         
         step.duration_ms = int((time.time() - start) * 1000)
+        step.duration_ms = int((time.time() - start) * 1000)
+        return step
+
+    async def _run_scheduler_agent(self, state: OrchestratorState) -> AgentStep:
+        """Run the scheduler agent"""
+        import time
+        start = time.time()
+        
+        step = AgentStep(
+            agent="Scheduler Agent",
+            status=AgentState.THINKING
+        )
+        
+        try:
+            # Schedule task
+            results = await self.scheduler_agent.schedule(
+                query=state.query,
+                context=state.context
+            )
+            
+            step.status = AgentState.DONE
+            step.action = f"Scheduled task: {results.get('job_details', {}).get('task_name', 'Unknown')}"
+            step.observation = results.get("message", "")
+            
+            # Append this info to the final response if not already there
+            if state.final_response:
+                state.final_response += f"\n\n[Scheduler]: {results.get('message')}"
+            
+        except Exception as e:
+            step.status = AgentState.ERROR
+            step.observation = str(e)
+        
+        step.duration_ms = int((time.time() - start) * 1000)
         return step
     
     # ========================================
@@ -414,11 +454,18 @@ class AgentOrchestrator:
                 "output_type": "text"
             }
     
-    def _needs_data_analysis(self, analysis: Dict) -> bool:
+    def _needs_data_analysis(self, analysis: Dict, query: str = "") -> bool:
         """Check if query needs data analysis"""
-        keywords = ["how much", "how many", "trend", "compare", "total", "average"]
-        query_lower = analysis.get("intent", "").lower()
+        keywords = ["how much", "how many", "trend", "compare", "total", "average", "calculate", "sum", "count"]
         
+        # Check intent
+        intent = analysis.get("intent", "").lower()
+        for keyword in keywords:
+            if keyword in intent:
+                return True
+                
+        # Check original query
+        query_lower = query.lower()
         for keyword in keywords:
             if keyword in query_lower:
                 return True
@@ -438,6 +485,17 @@ class AgentOrchestrator:
                 return True
         
         return analysis.get("output_type") in ["report", "action"]
+
+    def _needs_scheduling(self, analysis: Dict) -> bool:
+        """Check if query needs scheduling"""
+        keywords = ["schedule", "remind", "daily", "weekly", "monthly", "every", "tomorrow", "recurring", "automate"]
+        intent = analysis.get("intent", "").lower()
+        
+        for keyword in keywords:
+            if keyword in intent:
+                return True
+        
+        return False
     
     async def _save_to_memory(
         self, 

@@ -86,9 +86,18 @@ class GeminiClient:
             error_msg = traceback.format_exc()
             with open("last_gemini_error.txt", "w", encoding="utf-8") as f:
                 f.write(error_msg)
-            print(f"============== GEMINI ERROR ==============")
+            
+            print(f"\n\n🚨 ============= GEMINI ERROR START ============= 🚨")
+            print(f"Model used: {settings.LLM_MODEL}")
+            print(f"Error type: {type(e).__name__}")
+            print(f"Error details: {str(e)}")
+            if hasattr(e, "status_code"):
+                print(f"Status Code: {e.status_code}")
+            
+            # Print full traceback to console
             print(error_msg)
-            print(f"==========================================")
+            print(f"🚨 ================= GEMINI ERROR END ================= 🚨\n\n")
+            
             raise LLMException(f"Generation failed: {str(e)}")
     
     # ========================================

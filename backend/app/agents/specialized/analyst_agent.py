@@ -7,10 +7,11 @@ Analyzes data, generates SQL, detects patterns
 
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
+from sqlalchemy import text
 
 from app.llm.gemini import GeminiClient
 from app.llm.prompts import ANALYST_AGENT_PROMPT
-
+from app.database.connection import get_db_session
 
 class AnalystAgent:
     """
@@ -28,14 +29,13 @@ class AnalystAgent:
         self.llm = llm
         self.system_prompt = ANALYST_AGENT_PROMPT
         
-        # Sample database schema (would be loaded from actual DB)
+        # Real database schema (matches models.py)
         self.schema = """
         Tables:
-        - sales (id, product_id, customer_id, amount, quantity, date, region)
+        - sales (id, customer_id, product_id, amount, quantity, region, date)
         - customers (id, name, email, segment, created_at, last_purchase)
         - products (id, name, category, price, cost, inventory)
         - support_tickets (id, customer_id, subject, status, priority, created_at, resolved_at)
-        - metrics (id, metric_name, value, recorded_at)
         """
     
     async def analyze(
@@ -56,19 +56,27 @@ class AnalystAgent:
         # Determine what kind of analysis is needed
         analysis_type = await self._determine_analysis_type(query)
         
+        sql_query = None
         # Generate SQL if database query needed
         if analysis_type.get("needs_sql"):
             sql_query = await self._generate_sql(query)
-            data = await self._execute_query(sql_query)
+            try:
+                data = await self._execute_query(sql_query)
+            except Exception as e:
+                print(f"SQL Execution Error: {e}")
+                # Fallback to empty list or simple error message in data
+                data = []
         else:
-            data = self._get_sample_data(query)
+            # If no SQL needed, maybe just visualization of derived data?
+            # For now, default to empty or specific logic
+            data = []
         
         # Detect patterns
         patterns = await self._detect_patterns(data, query)
         
         # Generate chart if visualization would help
         chart = None
-        if analysis_type.get("needs_visualization"):
+        if analysis_type.get("needs_visualization") and data:
             chart = await self._generate_chart_config(data, query)
         
         # Generate summary
@@ -80,7 +88,7 @@ class AnalystAgent:
             "chart": chart,
             "summary": summary,
             "action": f"Analyzed {len(data)} data points",
-            "sql_query": analysis_type.get("sql_query")
+            "sql_query": sql_query
         }
     
     async def _determine_analysis_type(self, query: str) -> Dict[str, Any]:
@@ -115,10 +123,10 @@ Return JSON:
             )
         except Exception:
             return {
-                "needs_sql": False,
+                "needs_sql": True, # Default to try SQL
                 "needs_visualization": True,
                 "metrics": ["general"],
-                "time_range": "week"
+                "time_range": "all"
             }
     
     async def _generate_sql(self, query: str) -> str:
@@ -132,11 +140,12 @@ Database Schema:
 User Request: {query}
 
 Rules:
-- Use standard SQL syntax
+- Use standard SQL syntax (SQLite compatible)
 - Include appropriate WHERE clauses
 - Use aggregations when asking for totals/averages
-- Limit results to 1000 rows
+- Limit results to 100 rows
 - Add ORDER BY for meaningful ordering
+- Return dates as strings if needed
 
 Return only the SQL query, no explanation.
 """
@@ -156,19 +165,27 @@ Return only the SQL query, no explanation.
     
     async def _execute_query(self, sql: str) -> List[Dict]:
         """
-        Execute SQL query (returns sample data for now)
-        In production, this would connect to actual database
+        Execute SQL query against the real database
         """
-        # Return sample data based on query type
-        if "sales" in sql.lower():
-            return self._generate_sales_data()
-        elif "ticket" in sql.lower():
-            return self._generate_ticket_data()
-        elif "customer" in sql.lower():
-            return self._generate_customer_data()
-        else:
-            return self._generate_generic_data()
-    
+        print(f"📊 Executing SQL: {sql}")
+        async with get_db_session() as session:
+            result = await session.execute(text(sql))
+            
+            # Convert rows to list of dicts
+            columns = result.keys()
+            rows = []
+            for row in result.all():
+                row_dict = {}
+                for i, column in enumerate(columns):
+                    val = row[i]
+                    # Handle datetime serialization if needed
+                    if isinstance(val, datetime):
+                        val = val.isoformat()
+                    row_dict[column] = val
+                rows.append(row_dict)
+            
+            return rows
+
     async def _detect_patterns(
         self,
         data: List[Dict],
@@ -180,42 +197,33 @@ Return only the SQL query, no explanation.
         
         patterns = []
         
-        # Look for trends
+        # Look for trends (simple logic for now)
         if len(data) > 1:
-            values = [d.get("value", d.get("amount", 0)) for d in data]
+            # Try to find a numerical column
+            value_key = None
+            for key in data[0].keys():
+                if isinstance(data[0][key], (int, float)) and key not in ["id", "product_id", "customer_id"]:
+                    value_key = key
+                    break
             
-            if values[-1] > values[0]:
-                change = ((values[-1] - values[0]) / values[0]) * 100 if values[0] else 0
-                patterns.append({
-                    "type": "trend",
-                    "direction": "increasing",
-                    "change_percent": round(change, 1),
-                    "description": f"Values increased by {round(change, 1)}%"
-                })
-            elif values[-1] < values[0]:
-                change = ((values[0] - values[-1]) / values[0]) * 100 if values[0] else 0
-                patterns.append({
-                    "type": "trend",
-                    "direction": "decreasing",
-                    "change_percent": round(-change, 1),
-                    "description": f"Values decreased by {round(change, 1)}%"
-                })
-        
-        # Look for anomalies
-        if len(data) > 3:
-            values = [d.get("value", d.get("amount", 0)) for d in data]
-            avg = sum(values) / len(values)
-            
-            for i, v in enumerate(values):
-                if abs(v - avg) > avg * 0.5:  # 50% deviation
+            if value_key:
+                values = [d[value_key] for d in data]
+                if values[-1] > values[0]:
+                    change = ((values[-1] - values[0]) / values[0]) * 100 if values[0] else 0
                     patterns.append({
-                        "type": "anomaly",
-                        "index": i,
-                        "value": v,
-                        "expected": round(avg, 2),
-                        "description": f"Unusual value detected: {v} (expected ~{round(avg, 2)})"
+                        "type": "trend",
+                        "direction": "increasing",
+                        "change_percent": round(change, 1),
+                        "description": f"{value_key} increased by {round(change, 1)}%"
                     })
-                    break  # Report first anomaly
+                elif values[-1] < values[0]:
+                    change = ((values[0] - values[-1]) / values[0]) * 100 if values[0] else 0
+                    patterns.append({
+                        "type": "trend",
+                        "direction": "decreasing",
+                        "change_percent": round(-change, 1),
+                        "description": f"{value_key} decreased by {round(change, 1)}%"
+                    })
         
         return patterns
     
@@ -240,13 +248,14 @@ Return only the SQL query, no explanation.
         x_key = None
         y_key = None
         
-        for key in ["date", "month", "week", "name", "category"]:
-            if key in sample:
+        # Heuristics for axes
+        for key in sample.keys():
+            if key in ["date", "month", "week", "name", "category", "region"]:
                 x_key = key
                 break
         
-        for key in ["value", "amount", "count", "total"]:
-            if key in sample:
+        for key in sample.keys():
+            if isinstance(sample[key], (int, float)) and key not in ["id", "customer_id", "product_id"]:
                 y_key = key
                 break
         
@@ -271,7 +280,7 @@ Return only the SQL query, no explanation.
     ) -> str:
         """Generate analysis summary"""
         if not data:
-            return "No data available for analysis."
+            return "No data available for analysis. The query returned no results."
         
         pattern_text = "\n".join([p["description"] for p in patterns]) if patterns else "No significant patterns detected."
         
@@ -289,53 +298,3 @@ Keep the summary concise and actionable.
 """
         
         return await self.llm.generate(prompt=prompt)
-    
-    # ========================================
-    # Sample Data Generators
-    # ========================================
-    def _generate_sales_data(self) -> List[Dict]:
-        """Generate sample sales data"""
-        base_date = datetime.now() - timedelta(days=7)
-        return [
-            {"date": (base_date + timedelta(days=i)).strftime("%Y-%m-%d"),
-             "amount": 10000 + (i * 1000) + ((-1) ** i * 2000),
-             "orders": 50 + i * 5}
-            for i in range(7)
-        ]
-    
-    def _generate_ticket_data(self) -> List[Dict]:
-        """Generate sample ticket data"""
-        return [
-            {"date": "2024-01-23", "open": 47, "resolved": 32, "new": 15},
-            {"date": "2024-01-22", "open": 64, "resolved": 28, "new": 42},
-            {"date": "2024-01-21", "open": 50, "resolved": 35, "new": 22},
-        ]
-    
-    def _generate_customer_data(self) -> List[Dict]:
-        """Generate sample customer data"""
-        return [
-            {"segment": "Enterprise", "count": 45, "revenue": 450000},
-            {"segment": "SMB", "count": 320, "revenue": 280000},
-            {"segment": "Startup", "count": 890, "revenue": 120000},
-        ]
-    
-    def _generate_generic_data(self) -> List[Dict]:
-        """Generate generic sample data"""
-        return [
-            {"category": "A", "value": 100},
-            {"category": "B", "value": 150},
-            {"category": "C", "value": 80},
-        ]
-    
-    def _get_sample_data(self, query: str) -> List[Dict]:
-        """Get sample data based on query keywords"""
-        query_lower = query.lower()
-        
-        if "sales" in query_lower or "revenue" in query_lower:
-            return self._generate_sales_data()
-        elif "ticket" in query_lower or "support" in query_lower:
-            return self._generate_ticket_data()
-        elif "customer" in query_lower:
-            return self._generate_customer_data()
-        else:
-            return self._generate_generic_data()

@@ -10,13 +10,10 @@ import {
     X,
     CheckCircle2,
     Clock,
-    AlertCircle,
     Grid3X3,
     List,
-    Filter,
-    Download,
 } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Input, Badge, Modal } from '../components/ui';
+import { Card, CardContent, Button, Input, Badge, Modal } from '../components/ui';
 import { clsx } from 'clsx';
 import api from '../services/api';
 
@@ -248,8 +245,8 @@ const Documents = () => {
                     onChange={handleFileSelect}
                     className="hidden"
                 />
-                <Button 
-                    variant="outline" 
+                <Button
+                    variant="outline"
                     className="cursor-pointer"
                     onClick={() => fileInputRef.current?.click()}
                 >
