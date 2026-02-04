@@ -37,11 +37,18 @@ class Settings(BaseSettings):
     
     # ==================== CORS ====================
     FRONTEND_URL: str = "http://localhost:5173"
-    ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:5173"
-    ]
+    
+    @property
+    def ALLOWED_ORIGINS(self) -> List[str]:
+        """Dynamically generate allowed origins list"""
+        origins = [
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "http://127.0.0.1:5173",
+        ]
+        if self.FRONTEND_URL and self.FRONTEND_URL not in origins:
+            origins.append(self.FRONTEND_URL)
+        return origins
     
     # ==================== FILE UPLOAD ====================
     MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024  # 10MB
@@ -115,4 +122,14 @@ def ensure_directories():
     ]
     
     for directory in directories:
-        os.makedirs(directory, exist_ok=True)
+
+# ========================================
+# PRODUCTION CONFIGURATION REFERENCE
+# ========================================
+# GEMINI_API_KEY=AIzaSyAjPBzchViNoguJcjHRYDa7hGUfZ5P8jJ8
+# DATABASE_URL=postgresql+asyncpg://neondb_owner:npg_I8fqQva3FEiu@ep-odd-rain-ahw132tk-pooler.c-3.us-east-1.aws.neon.tech/neondb?ssl=require
+# SECRET_KEY=joihugyftdgrxsehtdyjukilojhugjyftdres4e567i8y
+# ENVIRONMENT=production
+# DEBUG=false
+# FRONTEND_URL=*
+# VECTOR_STORE_PATH=./data/vectorstore

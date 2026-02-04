@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, Badge, Button } from '../components/ui';
+import { Card, CardContent, Button } from '../components/ui';
 import { Bell, Check, Trash2, AlertTriangle, Info, CheckCircle } from 'lucide-react';
 import api from '../services/api';
 import { clsx } from 'clsx';

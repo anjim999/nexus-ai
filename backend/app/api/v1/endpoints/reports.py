@@ -16,7 +16,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from app.dependencies import get_db
-from app.database.models import Report, ScheduledReport, Report as DbReportModel, ScheduledTask as DbScheduledModel
+from app.database.models import Report, ScheduledTask
 
 router = APIRouter()
 

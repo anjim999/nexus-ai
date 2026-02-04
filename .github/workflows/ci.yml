@@ -1,58 +1,62 @@
-name: Nexus AI CI
+name: Nexus AI CI/CD
 
 on:
   push:
-    branches: [ "main", "stage", "dev" ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ "main", "stage", "dev" ]
+    branches: [ main, master ]
 
 jobs:
-  backend-test:
+  # ========================================
+  # Backend CI
+  # ========================================
+  backend-ci:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./backend
-
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.11"
-        
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        
-    # Note: We will enable these once actual tests are written
-    # - name: Run Tests
-    #   run: |
-    #     pytest
+      - uses: actions/checkout@v4
 
-  frontend-test:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Lint with flake8
+        run: |
+          cd backend
+          pip install flake8
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+  # ========================================
+  # Frontend CI
+  # ========================================
+  frontend-ci:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./frontend
-
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
-        
-    # We need to run npm install, but only if package.json exists (Phase 5 will create it)
-    # For now, we'll placeholder this step
-    - name: Install Dependencies
-      run: |
-         if [ -f package.json ]; then npm install; fi
+      - uses: actions/checkout@v4
 
-    # - name: Run Build Check
-    #   run: |
-    #      if [ -f package.json ]; then npm run build; fi
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build
+        env:
+          VITE_API_URL: https://nexus-ai-backend.onrender.com/api/v1 # Placeholder for build validation

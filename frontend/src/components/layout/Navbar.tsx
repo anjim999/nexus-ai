@@ -1,27 +1,60 @@
-import { Bell, Search, Moon, Sun } from 'lucide-react';
-import { useState } from 'react';
-
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../theme-provider';
+import { Search, Sun, Moon, Bell } from 'lucide-react';
 
 const Navbar = () => {
     const { theme, setTheme } = useTheme();
+    const [searchQuery, setSearchQuery] = useState('');
+    const navigate = useNavigate();
+
+    const handleKeyDown = useCallback((e: KeyboardEvent) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            e.preventDefault();
+            document.getElementById('main-search')?.focus();
+        }
+    }, []);
+
+    useEffect(() => {
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [handleKeyDown]);
+
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!searchQuery.trim()) return;
+
+        // Basic search routing logic
+        const q = searchQuery.toLowerCase();
+        if (q.includes('chat') || q.includes('ask')) navigate('/chat');
+        else if (q.includes('doc')) navigate('/documents');
+        else if (q.includes('report')) navigate('/reports');
+        else if (q.includes('agent')) navigate('/agents');
+        else if (q.includes('setting')) navigate('/settings');
+        else if (q.includes('notif')) navigate('/notifications');
+
+        setSearchQuery('');
+    };
 
     return (
         <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-6">
             {/* Search Bar */}
-            <div className="flex-1 max-w-xl">
+            <form onSubmit={handleSearch} className="flex-1 max-w-xl">
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
+                        id="main-search"
                         type="text"
                         placeholder="Ask Nexus anything..."
-                        className="w-full pl-10 pr-4 py-2 bg-muted/50 border border-border rounded-lg text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-muted/50 border border-border rounded-lg text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-foreground"
                     />
                     <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-xs font-mono text-muted-foreground bg-muted rounded">
                         ⌘K
                     </kbd>
                 </div>
-            </div>
+            </form>
 
             {/* Right Actions */}
             <div className="flex items-center gap-2 ml-4">

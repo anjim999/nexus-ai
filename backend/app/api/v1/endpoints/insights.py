@@ -295,24 +295,26 @@ async def get_dashboard_data(
 
 @router.get("/metrics", response_model=List[MetricCard])
 async def get_metrics(
-    time_range: TimeRange = Query(default=TimeRange.WEEK)
+    time_range: TimeRange = Query(default=TimeRange.WEEK),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Get key business metrics only.
     """
-    dashboard = await get_dashboard_data(time_range)
+    dashboard = await get_dashboard_data(time_range, db)
     return dashboard.metrics
 
 
 @router.get("/alerts", response_model=List[AlertItem])
 async def get_alerts(
     severity: Optional[AlertSeverity] = None,
-    unread_only: bool = False
+    unread_only: bool = False,
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Get alerts and notifications.
     """
-    dashboard = await get_dashboard_data(TimeRange.WEEK)
+    dashboard = await get_dashboard_data(TimeRange.WEEK, db)
     alerts = dashboard.alerts
     
     if severity:
