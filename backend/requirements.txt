@@ -23,6 +23,7 @@ sentence-transformers==2.2.2
 # Database
 sqlalchemy==2.0.23
 aiosqlite==0.19.0
+asyncpg==0.29.0
 
 # Document Processing
 pypdf==3.17.4
