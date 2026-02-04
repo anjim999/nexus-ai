@@ -122,14 +122,5 @@ def ensure_directories():
     ]
     
     for directory in directories:
+        os.makedirs(directory, exist_ok=True)
 
-# ========================================
-# PRODUCTION CONFIGURATION REFERENCE
-# ========================================
-# GEMINI_API_KEY=AIzaSyAjPBzchViNoguJcjHRYDa7hGUfZ5P8jJ8
-# DATABASE_URL=postgresql+asyncpg://neondb_owner:npg_I8fqQva3FEiu@ep-odd-rain-ahw132tk-pooler.c-3.us-east-1.aws.neon.tech/neondb?ssl=require
-# SECRET_KEY=joihugyftdgrxsehtdyjukilojhugjyftdres4e567i8y
-# ENVIRONMENT=production
-# DEBUG=false
-# FRONTEND_URL=*
-# VECTOR_STORE_PATH=./data/vectorstore
