@@ -1,7 +1,5 @@
 """
-========================================
 Agents Endpoints
-========================================
 Monitor and control AI agents
 """
 
@@ -14,9 +12,7 @@ from enum import Enum
 router = APIRouter()
 
 
-# ========================================
 # Enums
-# ========================================
 class AgentStatus(str, Enum):
     IDLE = "idle"
     THINKING = "thinking"
@@ -33,9 +29,7 @@ class AgentType(str, Enum):
     SCHEDULER = "scheduler"
 
 
-# ========================================
 # Schemas
-# ========================================
 class AgentInfo(BaseModel):
     """Information about an agent"""
     id: str
@@ -78,9 +72,7 @@ class AgentTaskRequest(BaseModel):
     parameters: Optional[dict] = None
 
 
-# ========================================
 # Endpoints
-# ========================================
 @router.get("/", response_model=List[AgentInfo])
 async def list_agents():
     """

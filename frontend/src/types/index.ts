@@ -1,6 +1,4 @@
-// ========================================
 // Nexus AI - TypeScript Types
-// ========================================
 
 // Chat Types
 export interface ChatMessage {

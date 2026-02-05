@@ -1,6 +1,4 @@
-# ========================================
 # AI Ops Engineer - Makefile
-# ========================================
 # Easy commands for development and deployment
 
 .PHONY: help install run test clean docker-up docker-down

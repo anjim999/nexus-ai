@@ -20,8 +20,8 @@ import {
 } from 'recharts';
 import { Card, Button, Badge } from '../components/ui';
 import { clsx } from 'clsx';
-import { chatService } from '../services/chatService';
 import type { ChatResponse } from '../services/chatService';
+import { useChatWebSocket } from '../hooks/useChatWebSocket';
 
 interface Message {
     id: string;
@@ -48,6 +48,16 @@ const Chat = () => {
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [conversationId, setConversationId] = useState<string | null>(null);
+    const { sendMessage, agentStatus, isConnected } = useChatWebSocket(conversationId);
+
+    // Ensure we have a conversation ID on mount
+    useEffect(() => {
+        if (!conversationId) {
+            setConversationId(crypto.randomUUID());
+        }
+    }, []);
+
+
     const [showAgentSteps, setShowAgentSteps] = useState<string | null>(null);
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -59,10 +69,10 @@ const Chat = () => {
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages]);
+    }, [messages, agentStatus]);
 
     const handleSend = async () => {
-        if (!input.trim() || loading) return;
+        if (!input.trim() || loading || !isConnected) return;
 
         const userMessage: Message = {
             id: Date.now().toString(),
@@ -75,15 +85,7 @@ const Chat = () => {
         setInput('');
         setLoading(true);
 
-        try {
-            const data = await chatService.sendMessage({
-                message: userMessage.content,
-                conversation_id: conversationId,
-                include_sources: true,
-            });
-
-            setConversationId(data.conversation_id);
-
+        sendMessage(userMessage.content, (data: ChatResponse) => {
             const assistantMessage: Message = {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
@@ -95,20 +97,9 @@ const Chat = () => {
                 charts: data.charts,
                 actionsTaken: data.actions_taken
             };
-
             setMessages((prev) => [...prev, assistantMessage]);
-        } catch (error) {
-            console.error('Chat error:', error);
-            const errorMessage: Message = {
-                id: (Date.now() + 1).toString(),
-                role: 'assistant',
-                content: "I apologize, but I'm having trouble connecting to the server. Please ensure the backend is running and try again.",
-                timestamp: new Date(),
-            };
-            setMessages((prev) => [...prev, errorMessage]);
-        } finally {
             setLoading(false);
-        }
+        });
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -378,7 +369,7 @@ const Chat = () => {
                             </div>
                             <div className="flex items-center gap-2 text-muted-foreground">
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                <span className="text-sm">Thinking...</span>
+                                <span className="text-sm">{agentStatus || "Thinking..."}</span>
                             </div>
                         </div>
                     )}

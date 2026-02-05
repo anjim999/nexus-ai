@@ -1,9 +1,5 @@
-"""
-========================================
-Scheduler Agent
-========================================
-Manages scheduled tasks and automated workflows
-"""
+# Scheduler Agent
+# Manages scheduled tasks and automated workflows
 
 from typing import Dict, Any, List, Optional
 from datetime import datetime
@@ -13,15 +9,8 @@ import uuid
 from app.llm.gemini import GeminiClient
 
 class SchedulerAgent:
-    """
-    Scheduler Agent
-    
-    Responsibilities:
-    - Schedule recurring tasks
-    - Manage automated workflows
-    - specific cron-like job definitions
-    - Check conflicts
-    """
+    # Scheduler Agent
+    # Responsibilities: Schedule tasks, manage workflows, cron jobs, conflict checks
     
     def __init__(self, llm: GeminiClient):
         self.llm = llm
@@ -43,9 +32,7 @@ Output JSON only:
 """
 
     async def schedule(self, query: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
-        """
-        Parse request and schedule a task
-        """
+        # Parse request and schedule a task
         print(f"⏰ Scheduler parsing: {query}")
         
         prompt = f"""
@@ -92,5 +79,5 @@ Return the JSON configuration.
             }
 
     async def list_jobs(self) -> List[Dict]:
-        """List all active jobs"""
+        # List all active jobs
         return list(self.jobs.values())

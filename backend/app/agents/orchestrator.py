@@ -1,9 +1,5 @@
-"""
-========================================
-Agent Orchestrator
-========================================
-Coordinates multiple AI agents using LangGraph
-"""
+# Agent Orchestrator
+# Coordinates multiple AI agents using LangGraph
 
 from typing import Dict, Any, List, Optional, AsyncGenerator
 from datetime import datetime
@@ -23,7 +19,7 @@ from app.llm.prompts import (
 
 
 class AgentState(str, Enum):
-    """Agent execution state"""
+    # Agent execution state
     IDLE = "idle"
     THINKING = "thinking"
     EXECUTING = "executing"
@@ -33,7 +29,7 @@ class AgentState(str, Enum):
 
 @dataclass
 class AgentStep:
-    """Single step in agent execution"""
+    # Single step in agent execution
     agent: str
     status: AgentState
     thought: Optional[str] = None
@@ -45,7 +41,7 @@ class AgentStep:
 
 @dataclass
 class OrchestratorState:
-    """State passed between agents"""
+    # State passed between agents
     query: str
     conversation_id: str
     context: Dict[str, Any] = field(default_factory=dict)
@@ -61,17 +57,9 @@ class OrchestratorState:
 
 
 class AgentOrchestrator:
-    """
-    Multi-Agent Orchestrator
-    
-    Coordinates the execution of multiple specialized agents:
-    1. Research Agent - Document search and retrieval
-    2. Analyst Agent - Data analysis and SQL queries
-    3. Reasoning Agent - Synthesis and conclusions
-    4. Action Agent - Execute actions and generate outputs
-    
-    Uses a state machine pattern for agent coordination.
-    """
+    # Multi-Agent Orchestrator
+    # Coordinates the execution of multiple specialized agents: Research, Analyst, Reasoning, Action
+    # Uses a state machine pattern for agent coordination
     
     def __init__(
         self,
@@ -108,17 +96,8 @@ class AgentOrchestrator:
         conversation_id: Optional[str] = None,
         include_sources: bool = True
     ) -> Dict[str, Any]:
-        """
-        Process a user query through the agent pipeline
-        
-        Args:
-            query: User's question or request
-            conversation_id: Optional conversation context
-            include_sources: Whether to include source citations
-            
-        Returns:
-            Complete response with sources and agent steps
-        """
+        # Process a user query through the agent pipeline
+        # Returns complete response with sources and agent steps
         # Generate conversation ID if not provided
         if not conversation_id:
             conversation_id = str(uuid.uuid4())
@@ -206,11 +185,8 @@ class AgentOrchestrator:
         query: str,
         conversation_id: Optional[str] = None
     ) -> AsyncGenerator[Dict[str, Any], None]:
-        """
-        Process query with streaming updates
-        
-        Yields status updates as agents work
-        """
+        # Process query with streaming updates
+        # Yields status updates as agents work
         if not conversation_id:
             conversation_id = str(uuid.uuid4())
         
@@ -256,17 +232,55 @@ class AgentOrchestrator:
             "agent": "reasoning",
             "result": "Synthesis complete"
         }
+
+        # Action (if needed)
+        if self._needs_action(query_analysis):
+            yield {"type": "agent_start", "agent": "action", "status": "executing"}
+            action_step = await self._run_action_agent(state)
+            state.agent_steps.append(action_step)
+            yield {
+                "type": "agent_done",
+                "agent": "action",
+                "result": f"Executed {len(state.actions_taken)} actions"
+            }
+
+        # Scheduler (if needed)
+        if self._needs_scheduling(query_analysis):
+            yield {"type": "agent_start", "agent": "scheduler", "status": "planning"}
+            scheduler_step = await self._run_scheduler_agent(state)
+            state.agent_steps.append(scheduler_step)
+            yield {
+                "type": "agent_done",
+                "agent": "scheduler",
+                "result": "Task scheduled"
+            }
         
         # Stream final response
         yield {"type": "response_start"}
         yield {"type": "response_chunk", "content": state.final_response}
-        yield {"type": "response_end", "sources": state.sources}
+        yield {
+            "type": "response_end", 
+            "data": {
+                "conversation_id": conversation_id,
+                "sources": state.sources,
+                "confidence": state.confidence,
+                "agent_steps": [
+                    {
+                        "agent": step.agent,
+                        "status": step.status.value,
+                        "action": step.action,
+                        "duration_ms": step.duration_ms
+                    }
+                    for step in state.agent_steps
+                ],
+                "charts": state.charts,
+                "actions_taken": state.actions_taken
+            }
+        }
 
-    # ========================================
     # Agent Runners
-    # ========================================
     async def _run_research_agent(self, state: OrchestratorState) -> AgentStep:
-        """Run the research agent"""
+        # Run the research agent
         import time
         start = time.time()
         
@@ -294,7 +308,7 @@ class AgentOrchestrator:
         return step
     
     async def _run_analyst_agent(self, state: OrchestratorState) -> AgentStep:
-        """Run the analyst agent"""
+        # Run the analyst agent
         import time
         start = time.time()
         
@@ -326,7 +340,7 @@ class AgentOrchestrator:
         return step
     
     async def _run_reasoning_agent(self, state: OrchestratorState) -> AgentStep:
-        """Run the reasoning agent"""
+        # Run the reasoning agent
         import time
         start = time.time()
         
@@ -363,7 +377,7 @@ class AgentOrchestrator:
         return step
     
     async def _run_action_agent(self, state: OrchestratorState) -> AgentStep:
-        """Run the action agent"""
+        # Run the action agent
         import time
         start = time.time()
         
@@ -395,7 +409,7 @@ class AgentOrchestrator:
         return step
 
     async def _run_scheduler_agent(self, state: OrchestratorState) -> AgentStep:
-        """Run the scheduler agent"""
+        # Run the scheduler agent
         import time
         start = time.time()
         
@@ -426,11 +440,9 @@ class AgentOrchestrator:
         step.duration_ms = int((time.time() - start) * 1000)
         return step
     
-    # ========================================
     # Helper Methods
-    # ========================================
     async def _analyze_query(self, query: str) -> Dict[str, Any]:
-        """Analyze query to determine processing path"""
+        # Analyze query to determine processing path
         prompt = QUERY_UNDERSTANDING_PROMPT.format(query=query)
         
         try:
@@ -455,7 +467,7 @@ class AgentOrchestrator:
             }
     
     def _needs_data_analysis(self, analysis: Dict, query: str = "") -> bool:
-        """Check if query needs data analysis"""
+        # Check if query needs data analysis
         keywords = ["how much", "how many", "trend", "compare", "total", "average", "calculate", "sum", "count"]
         
         # Check intent
@@ -476,7 +488,7 @@ class AgentOrchestrator:
         return False
     
     def _needs_action(self, analysis: Dict) -> bool:
-        """Check if query needs action execution"""
+        # Check if query needs action execution
         action_keywords = ["send", "create", "generate", "email", "report", "schedule"]
         intent = analysis.get("intent", "").lower()
         
@@ -487,7 +499,7 @@ class AgentOrchestrator:
         return analysis.get("output_type") in ["report", "action"]
 
     def _needs_scheduling(self, analysis: Dict) -> bool:
-        """Check if query needs scheduling"""
+        # Check if query needs scheduling
         keywords = ["schedule", "remind", "daily", "weekly", "monthly", "every", "tomorrow", "recurring", "automate"]
         intent = analysis.get("intent", "").lower()
         
@@ -504,7 +516,7 @@ class AgentOrchestrator:
         response: str,
         state: OrchestratorState
     ):
-        """Save exchange to database"""
+        # Save exchange to database
         # Save User Message
         await self.chat_repo.add_message(
             conversation_id=conversation_id,
@@ -534,9 +546,9 @@ class AgentOrchestrator:
         )
     
     async def get_conversation_history(self, conversation_id: str) -> List[Dict]:
-        """Get conversation history from database"""
+        # Get conversation history from database
         return await self.chat_repo.get_history(conversation_id)
     
     async def clear_conversation(self, conversation_id: str):
-        """Clear conversation history (Not implemented for DB yet to preserve data)"""
+        # Clear conversation history (Not implemented for DB yet to preserve data)
         pass

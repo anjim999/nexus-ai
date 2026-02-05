@@ -1,9 +1,5 @@
-"""
-========================================
-Document Endpoints
-========================================
-Upload, manage, and search documents
-"""
+# Document Endpoints
+# Upload, manage, and search documents for RAG processing
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form
 from fastapi.responses import JSONResponse
@@ -21,9 +17,7 @@ from app.rag.vectorstore import VectorStore
 router = APIRouter()
 
 
-# ========================================
 # Schemas
-# ========================================
 class DocumentMetadata(BaseModel):
     """Document metadata"""
     id: str
@@ -65,31 +59,14 @@ class DocumentListResponse(BaseModel):
     total_count: int
 
 
-# ========================================
 # Endpoints
-# ========================================
 @router.post("/upload", response_model=DocumentUploadResponse)
 async def upload_document(
     file: UploadFile = File(...),
     description: Optional[str] = Form(default=None),
     vector_store: VectorStore = Depends(get_vector_store)
 ):
-    """
-    Upload a document for RAG processing.
-    
-    Supported formats:
-    - PDF (.pdf)
-    - Text (.txt)
-    - CSV (.csv)
-    - Word (.docx)
-    - JSON (.json)
-    
-    The document will be:
-    1. Saved to storage
-    2. Split into chunks
-    3. Converted to embeddings
-    4. Indexed for search
-    """
+    # Upload a document for RAG processing
     import time
     start_time = time.time()
     
@@ -152,9 +129,7 @@ async def upload_multiple_documents(
     files: List[UploadFile] = File(...),
     vector_store: VectorStore = Depends(get_vector_store)
 ):
-    """
-    Upload multiple documents at once.
-    """
+    # Upload multiple documents at once
     results = []
     
     for file in files:
@@ -177,11 +152,7 @@ async def search_documents(
     request: DocumentSearchRequest,
     vector_store: VectorStore = Depends(get_vector_store)
 ):
-    """
-    Search across all uploaded documents using semantic search.
-    
-    Returns the most relevant chunks matching your query.
-    """
+    # Search across all uploaded documents using semantic search
     results = await vector_store.search(
         query=request.query,
         top_k=request.top_k,
@@ -203,9 +174,7 @@ async def search_documents(
 async def list_documents(
     vector_store: VectorStore = Depends(get_vector_store)
 ):
-    """
-    List all uploaded documents.
-    """
+    # List all uploaded documents
     documents = await vector_store.list_documents()
     
     return DocumentListResponse(
@@ -219,9 +188,7 @@ async def get_document(
     doc_id: str,
     vector_store: VectorStore = Depends(get_vector_store)
 ):
-    """
-    Get metadata for a specific document.
-    """
+    # Get metadata for a specific document
     doc = await vector_store.get_document(doc_id)
     
     if not doc:
@@ -235,9 +202,7 @@ async def delete_document(
     doc_id: str,
     vector_store: VectorStore = Depends(get_vector_store)
 ):
-    """
-    Delete a document and remove from index.
-    """
+    # Delete a document and remove from index
     success = await vector_store.delete_document(doc_id)
     
     if not success:
@@ -250,9 +215,7 @@ async def delete_document(
 async def reindex_all_documents(
     vector_store: VectorStore = Depends(get_vector_store)
 ):
-    """
-    Reindex all documents. Useful after embedding model changes.
-    """
+    # Reindex all documents. Useful after embedding model changes
     count = await vector_store.reindex_all()
     
     return {

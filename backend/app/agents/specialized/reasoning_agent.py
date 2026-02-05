@@ -1,9 +1,5 @@
-"""
-========================================
-Reasoning Agent
-========================================
-Synthesizes information and draws conclusions
-"""
+# Reasoning Agent
+# Synthesizes information and draws conclusions
 
 from typing import Dict, Any, List, Optional
 
@@ -12,16 +8,8 @@ from app.llm.prompts import REASONING_AGENT_PROMPT
 
 
 class ReasoningAgent:
-    """
-    Reasoning Agent
-    
-    Responsibilities:
-    - Synthesize information from multiple sources
-    - Draw logical conclusions
-    - Explain causality and correlations
-    - Assess confidence levels
-    - Generate actionable insights
-    """
+    # Reasoning Agent
+    # Responsibilities: Synthesize info, draw conclusions, explain causality, assess confidence, generate insights
     
     def __init__(self, llm: GeminiClient):
         self.llm = llm
@@ -34,18 +22,8 @@ class ReasoningAgent:
         data: List[Dict] = None,
         context: Dict[str, Any] = None
     ) -> Dict[str, Any]:
-        """
-        Reason through available information to answer query
-        
-        Args:
-            query: User's question
-            documents: Relevant documents from Research Agent
-            data: Data from Analyst Agent
-            context: Additional context
-            
-        Returns:
-            Response with reasoning, confidence, and insights
-        """
+        # Reason through available information to answer query
+        # Returns response with reasoning, confidence, and insights
         # Build context from all sources
         combined_context = self._build_context(documents, data, context)
         
@@ -74,7 +52,7 @@ class ReasoningAgent:
         data: List[Dict] = None,
         context: Dict[str, Any] = None
     ) -> str:
-        """Build combined context string"""
+        # Build combined context string
         parts = []
         
         # Add document context
@@ -100,7 +78,7 @@ class ReasoningAgent:
         return "\n\n".join(parts) if parts else "No additional context available."
     
     async def _generate_reasoning(self, query: str, context: str) -> str:
-        """Generate step-by-step reasoning"""
+        # Generate step-by-step reasoning
         prompt = f"""
 Think through this problem step by step.
 
@@ -131,7 +109,7 @@ Show your thinking clearly.
         context: str,
         reasoning: str
     ) -> str:
-        """Generate the final response"""
+        # Generate the final response
         prompt = f"""
 Based on your reasoning, provide a clear and helpful response to the user.
 
@@ -166,7 +144,7 @@ Provide the response:
         context: str,
         response: str
     ) -> float:
-        """Assess confidence in the response"""
+        # Assess confidence in the response
         prompt = f"""
 Assess your confidence in this response on a scale of 0.0 to 1.0.
 
@@ -202,7 +180,7 @@ Return only a number between 0.0 and 1.0.
         response: str,
         context: str
     ) -> List[str]:
-        """Extract key insights from the analysis"""
+        # Extract key insights from the analysis
         prompt = f"""
 Extract 2-3 key insights from this analysis.
 
@@ -229,7 +207,7 @@ Focus on actionable or surprising findings.
         items: List[Dict],
         criteria: List[str]
     ) -> Dict[str, Any]:
-        """Compare multiple items based on criteria"""
+        # Compare multiple items based on criteria
         import json
         
         prompt = f"""
@@ -270,7 +248,7 @@ Format as JSON:
         observation: str,
         context: str
     ) -> Dict[str, Any]:
-        """Generate hypotheses to explain an observation"""
+        # Generate hypotheses to explain an observation
         prompt = f"""
 Given this observation, generate possible hypotheses.
 

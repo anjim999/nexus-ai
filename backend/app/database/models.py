@@ -1,9 +1,5 @@
-"""
-========================================
-Database Models
-========================================
-SQLAlchemy ORM models
-"""
+# Database Models
+# SQLAlchemy ORM models for the AI system and business data
 
 from datetime import datetime
 from typing import Optional, List
@@ -17,9 +13,7 @@ import enum
 from app.database.connection import Base
 
 
-# ========================================
 # Enums
-# ========================================
 class MessageRole(str, enum.Enum):
     USER = "user"
     ASSISTANT = "assistant"
@@ -47,11 +41,9 @@ class TaskFrequency(str, enum.Enum):
     MONTHLY = "monthly"
 
 
-# ========================================
 # Models
-# ========================================
 class Conversation(Base):
-    """Chat conversation"""
+    # Chat conversation
     __tablename__ = "conversations"
     
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -69,7 +61,7 @@ class Conversation(Base):
 
 
 class Message(Base):
-    """Single message in a conversation"""
+    # Single message in a conversation
     __tablename__ = "messages"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -86,7 +78,7 @@ class Message(Base):
 
 
 class Document(Base):
-    """Uploaded document"""
+    # Uploaded document
     __tablename__ = "documents"
     
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -104,7 +96,7 @@ class Document(Base):
 
 
 class Insight(Base):
-    """AI-generated insight"""
+    # AI-generated insight
     __tablename__ = "insights"
     
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -122,7 +114,7 @@ class Insight(Base):
 
 
 class Report(Base):
-    """Generated report"""
+    # Generated report
     __tablename__ = "reports"
     
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -139,7 +131,7 @@ class Report(Base):
 
 
 class ScheduledTask(Base):
-    """Scheduled/recurring task"""
+    # Scheduled/recurring task
     __tablename__ = "scheduled_tasks"
     
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -157,7 +149,7 @@ class ScheduledTask(Base):
 
 
 class AgentLog(Base):
-    """Agent execution log"""
+    # Agent execution log
     __tablename__ = "agent_logs"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -170,12 +162,10 @@ class AgentLog(Base):
     duration_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
-# ========================================
-# Business Data Models (For Analyst Agent)
-# ========================================
+# Business Models
 
 class Customer(Base):
-    """Business Customer"""
+    # Business Customer
     __tablename__ = "customers"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -187,7 +177,7 @@ class Customer(Base):
 
 
 class Product(Base):
-    """Business Product"""
+    # Business Product
     __tablename__ = "products"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -199,7 +189,7 @@ class Product(Base):
 
 
 class Sale(Base):
-    """Sales Transaction"""
+    # Sales Transaction
     __tablename__ = "sales"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -216,7 +206,7 @@ class Sale(Base):
 
 
 class SupportTicket(Base):
-    """Customer Support Ticket"""
+    # Customer Support Ticket
     __tablename__ = "support_tickets"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -232,7 +222,7 @@ class SupportTicket(Base):
 
 
 class BusinessMetric(Base):
-    """Business metrics for dashboard"""
+    # Business metrics for dashboard
     __tablename__ = "business_metrics"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

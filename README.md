@@ -8,7 +8,8 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green?style=for-the-badge&logo=fastapi)
 ![React](https://img.shields.io/badge/React-18+-61DAFB?style=for-the-badge&logo=react)
 ![LangGraph](https://img.shields.io/badge/LangGraph-Latest-orange?style=for-the-badge)
-![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
+![WebSockets](https://img.shields.io/badge/WebSockets-Real--Time-red?style=for-the-badge&logo=socket.io)
+
 
 ---
 
@@ -55,8 +56,8 @@
 - Source citations
 
 ### 🔧 Advanced Capabilities
+- **Live Agent State Streaming** — Real-time view of agent thought process via WebSockets
 - **RAG System** — Understands your private documents
-- **Agent Transparency** — See AI reasoning in real-time
 - **Auto Visualizations** — AI creates charts from data
 - **PDF Export** — Professional reports on demand
 - **Voice Interface** — Speak your queries
@@ -74,7 +75,7 @@
 │  │Dashboard│ │  Chat   │ │ Agents  │ │ Reports │           │
 │  └─────────┘ └─────────┘ └─────────┘ └─────────┘           │
 └─────────────────────────┬───────────────────────────────────┘
-                          │ REST API + WebSocket
+                          │ REST API + WebSocket (Real-time Agent States)
                           ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                     BACKEND (FastAPI)                        │
@@ -139,7 +140,7 @@ python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env
-# Add your GEMINI_API_KEY to .env
+# Add your GEMINI_API_KEY to .env (Get fresh key if leaked from aistudio.google.com)
 uvicorn main:app --reload
 ```
 
@@ -262,12 +263,6 @@ docker-compose up --build
 
 ---
 
-## 📄 License
-
-MIT License - feel free to use for personal or commercial projects.
-
----
-
 ## 🤝 Contributing
 
 Contributions are welcome! Please read the [Contributing Guide](docs/CONTRIBUTING.md).
@@ -276,7 +271,7 @@ Contributions are welcome! Please read the [Contributing Guide](docs/CONTRIBUTIN
 
 ## 📞 Support
 
-- 📧 Email: your.email@example.com
+- 📧 Email: anjaneyulumandagiri@gmail.com
 - 🐛 Issues: GitHub Issues
 - 💬 Discussions: GitHub Discussions
 

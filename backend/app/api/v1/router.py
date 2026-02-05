@@ -1,8 +1,6 @@
 """
-========================================
 API V1 Main Router
-========================================
-Combines all API endpoints
+Combines all versioned API endpoints into a single router
 """
 
 from fastapi import APIRouter
@@ -11,9 +9,7 @@ from app.api.v1.endpoints import chat, documents, insights, agents, reports
 
 api_router = APIRouter()
 
-# ========================================
-# Include All Endpoint Routers
-# ========================================
+# Include Routers
 
 api_router.include_router(
     chat.router,

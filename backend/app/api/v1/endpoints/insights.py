@@ -1,9 +1,5 @@
-"""
-========================================
-Insights Endpoints
-========================================
-Dashboard data, metrics, and AI insights
-"""
+# Insights Endpoints
+# Dashboard data, metrics, and AI insights
 
 from fastapi import APIRouter, Depends, Query
 from typing import List, Optional
@@ -19,9 +15,7 @@ from app.database.models import Sale, Customer, SupportTicket, Insight, Schedule
 router = APIRouter()
 
 
-# ========================================
 # Enums
-# ========================================
 class TimeRange(str, Enum):
     TODAY = "today"
     WEEK = "week"
@@ -42,9 +36,7 @@ class AlertSeverity(str, Enum):
     CRITICAL = "critical"
 
 
-# ========================================
 # Schemas
-# ========================================
 class MetricCard(BaseModel):
     """Single metric for dashboard"""
     id: str
@@ -105,17 +97,13 @@ class InsightRequest(BaseModel):
     max_insights: int = Field(default=5, ge=1, le=10)
 
 
-# ========================================
 # Endpoints
-# ========================================
 @router.get("/dashboard", response_model=DashboardData)
 async def get_dashboard_data(
     time_range: TimeRange = Query(default=TimeRange.WEEK),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Get all dashboard data including metrics, alerts, and AI insights.
-    """
+    # Get all dashboard data including metrics, alerts, and AI insights
     now = datetime.utcnow()
     
     # 1. Determine Date Range
@@ -311,9 +299,7 @@ async def get_alerts(
     unread_only: bool = False,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Get alerts and notifications.
-    """
+    # Get alerts and notifications
     dashboard = await get_dashboard_data(TimeRange.WEEK, db)
     alerts = dashboard.alerts
     
@@ -328,17 +314,13 @@ async def get_alerts(
 
 @router.post("/alerts/{alert_id}/read")
 async def mark_alert_read(alert_id: str):
-    """Mark an alert as read."""
+    # Mark an alert as read
     return {"status": "success", "alert_id": alert_id}
 
 
 @router.post("/insights/generate", response_model=List[AIInsight])
 async def generate_insights(request: InsightRequest):
-    """
-    Generate AI insights on demand.
-    
-    The AI will analyze available data and produce actionable insights.
-    """
+    # Generate AI insights on demand
     # This would trigger the agent system to analyze data
     return [
         AIInsight(
@@ -360,9 +342,7 @@ async def get_trends(
     metric: str = Query(..., description="Metric to analyze"),
     time_range: TimeRange = Query(default=TimeRange.MONTH)
 ):
-    """
-    Get trend analysis for a specific metric.
-    """
+    # Get trend analysis for a specific metric
     return {
         "metric": metric,
         "time_range": time_range.value,
@@ -383,9 +363,7 @@ async def get_trends(
 async def detect_anomalies(
     time_range: TimeRange = Query(default=TimeRange.WEEK)
 ):
-    """
-    Detect anomalies in business data.
-    """
+    # Detect anomalies in business data
     return {
         "anomalies": [
             {

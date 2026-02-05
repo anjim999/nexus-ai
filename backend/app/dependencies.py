@@ -1,8 +1,6 @@
 """
-========================================
 Dependency Injection Container
-========================================
-Centralized dependencies for FastAPI
+Centralized dependencies and service providers for FastAPI
 """
 
 from typing import Generator, Optional
@@ -15,27 +13,21 @@ from app.rag.vectorstore import VectorStore
 from app.agents.orchestrator import AgentOrchestrator
 
 
-# ========================================
 # Database Dependency
-# ========================================
 async def get_db():
     """Get database session"""
     async with get_db_session() as session:
         yield session
 
 
-# ========================================
 # LLM Client Dependency
-# ========================================
 @lru_cache()
 def get_llm_client() -> GeminiClient:
     """Get cached LLM client instance"""
     return GeminiClient(api_key=settings.GEMINI_API_KEY)
 
 
-# ========================================
 # Vector Store Dependency
-# ========================================
 _vector_store: Optional[VectorStore] = None
 
 def get_vector_store() -> VectorStore:
@@ -46,9 +38,7 @@ def get_vector_store() -> VectorStore:
     return _vector_store
 
 
-# ========================================
 # Agent Orchestrator Dependency
-# ========================================
 _orchestrator: Optional[AgentOrchestrator] = None
 
 def get_orchestrator() -> AgentOrchestrator:
@@ -62,9 +52,7 @@ def get_orchestrator() -> AgentOrchestrator:
     return _orchestrator
 
 
-# ========================================
-# Common Dependencies Bundle
-# ========================================
+# Service Container
 class ServiceContainer:
     """Container for all services"""
     

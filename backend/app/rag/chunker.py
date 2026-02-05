@@ -1,9 +1,5 @@
-"""
-========================================
-Document Chunker
-========================================
-Split documents into chunks for indexing
-"""
+# Document Chunker
+# Split documents into chunks for indexing
 
 import os
 from typing import List, Dict, Any
@@ -13,15 +9,7 @@ from app.config import settings
 
 
 async def chunk_document(file_path: str) -> List[Dict[str, Any]]:
-    """
-    Split a document into chunks
-    
-    Args:
-        file_path: Path to the document
-        
-    Returns:
-        List of chunks with text and metadata
-    """
+    # Split a document into chunks
     ext = os.path.splitext(file_path)[1].lower()
     
     if ext == ".pdf":
@@ -40,7 +28,7 @@ async def chunk_document(file_path: str) -> List[Dict[str, Any]]:
 
 
 async def chunk_pdf(file_path: str) -> List[Dict[str, Any]]:
-    """Extract and chunk PDF content"""
+    # Extract and chunk PDF content
     from pypdf import PdfReader
     
     chunks = []
@@ -72,7 +60,7 @@ async def chunk_pdf(file_path: str) -> List[Dict[str, Any]]:
 
 
 async def chunk_text(file_path: str) -> List[Dict[str, Any]]:
-    """Extract and chunk plain text"""
+    # Extract and chunk plain text
     chunks = []
     
     try:
@@ -99,7 +87,7 @@ async def chunk_text(file_path: str) -> List[Dict[str, Any]]:
 
 
 async def chunk_csv(file_path: str) -> List[Dict[str, Any]]:
-    """Extract and chunk CSV content"""
+    # Extract and chunk CSV content
     import pandas as pd
     
     chunks = []
@@ -138,7 +126,7 @@ async def chunk_csv(file_path: str) -> List[Dict[str, Any]]:
 
 
 async def chunk_json(file_path: str) -> List[Dict[str, Any]]:
-    """Extract and chunk JSON content"""
+    # Extract and chunk JSON content
     import json
     
     chunks = []
@@ -170,7 +158,7 @@ async def chunk_json(file_path: str) -> List[Dict[str, Any]]:
 
 
 async def chunk_docx(file_path: str) -> List[Dict[str, Any]]:
-    """Extract and chunk Word document"""
+    # Extract and chunk Word document
     from docx import Document
     
     chunks = []
@@ -208,17 +196,7 @@ def split_text(
     chunk_size: int = 1000,
     overlap: int = 200
 ) -> List[str]:
-    """
-    Split text into overlapping chunks
-    
-    Args:
-        text: Text to split
-        chunk_size: Target chunk size in characters
-        overlap: Overlap between chunks
-        
-    Returns:
-        List of text chunks
-    """
+    # Split text into overlapping chunks
     if len(text) <= chunk_size:
         return [text.strip()] if text.strip() else []
     

@@ -1,9 +1,5 @@
-"""
-========================================
-Gemini LLM Client
-========================================
-Integration with Google's Gemini API
-"""
+# Gemini LLM Client
+# Integration with Google's Gemini API
 
 import google.generativeai as genai
 from typing import Optional, List, Dict, Any, AsyncGenerator
@@ -16,16 +12,8 @@ from app.core.exceptions import LLMException
 
 
 class GeminiClient:
-    """
-    Client for Google Gemini API
-    
-    Features:
-    - Text generation
-    - Structured output (JSON)
-    - Streaming responses
-    - Function calling
-    - Retry logic
-    """
+    # Client for Google Gemini API
+    # Features: Text generation, Structured output, Streaming, Function calling, Retry logic
     
     def __init__(self, api_key: str = None):
         self.api_key = api_key or settings.GEMINI_API_KEY
@@ -50,9 +38,7 @@ class GeminiClient:
         # Chat session storage
         self._chat_sessions: Dict[str, Any] = {}
     
-    # ========================================
     # Basic Generation
-    # ========================================
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10)
@@ -62,9 +48,7 @@ class GeminiClient:
         prompt: str,
         system_prompt: Optional[str] = None
     ) -> str:
-        """
-        Generate text response from prompt
-        """
+        # Generate text response from prompt
         print(f"--- Gemini Generating with model: {settings.LLM_MODEL} ---")
         try:
             # Build full prompt
@@ -100,26 +84,14 @@ class GeminiClient:
             
             raise LLMException(f"Generation failed: {str(e)}")
     
-    # ========================================
     # Structured Output
-    # ========================================
     async def generate_json(
         self,
         prompt: str,
         schema: Dict[str, Any],
         system_prompt: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Generate structured JSON output
-        
-        Args:
-            prompt: User prompt
-            schema: Expected JSON schema
-            system_prompt: Optional system instructions
-            
-        Returns:
-            Parsed JSON dictionary
-        """
+        # Generate structured JSON output
         json_instruction = f"""
 You must respond with valid JSON only. No markdown, no explanation, just JSON.
 Follow this exact schema:
@@ -144,24 +116,13 @@ Follow this exact schema:
         except json.JSONDecodeError as e:
             raise LLMException(f"Failed to parse JSON response: {str(e)}")
     
-    # ========================================
     # Streaming
-    # ========================================
     async def generate_stream(
         self,
         prompt: str,
         system_prompt: Optional[str] = None
     ) -> AsyncGenerator[str, None]:
-        """
-        Stream text response token by token
-        
-        Args:
-            prompt: User prompt
-            system_prompt: Optional system instructions
-            
-        Yields:
-            Text chunks as they're generated
-        """
+        # Stream text response token by token
         try:
             full_prompt = ""
             if system_prompt:
@@ -181,11 +142,9 @@ Follow this exact schema:
         except Exception as e:
             raise LLMException(f"Streaming failed: {str(e)}")
     
-    # ========================================
     # Chat with Memory
-    # ========================================
     def get_chat_session(self, conversation_id: str):
-        """Get or create a chat session"""
+        # Get or create a chat session
         if conversation_id not in self._chat_sessions:
             self._chat_sessions[conversation_id] = self.model.start_chat(history=[])
         return self._chat_sessions[conversation_id]
@@ -196,17 +155,7 @@ Follow this exact schema:
         conversation_id: str,
         system_prompt: Optional[str] = None
     ) -> str:
-        """
-        Chat with conversation memory
-        
-        Args:
-            message: User message
-            conversation_id: Conversation identifier
-            system_prompt: Optional system instructions
-            
-        Returns:
-            Assistant's response
-        """
+        # Chat with conversation memory
         try:
             chat = self.get_chat_session(conversation_id)
             
@@ -228,23 +177,13 @@ Follow this exact schema:
             raise LLMException(f"Chat failed: {str(e)}")
     
     def clear_chat_history(self, conversation_id: str):
-        """Clear chat history for a conversation"""
+        # Clear chat history for a conversation
         if conversation_id in self._chat_sessions:
             del self._chat_sessions[conversation_id]
     
-    # ========================================
     # Embeddings
-    # ========================================
     async def get_embedding(self, text: str) -> List[float]:
-        """
-        Get embedding vector for text
-        
-        Args:
-            text: Text to embed
-            
-        Returns:
-            Embedding vector
-        """
+        # Get embedding vector for text
         try:
             result = await asyncio.to_thread(
                 genai.embed_content,
@@ -258,41 +197,21 @@ Follow this exact schema:
             raise LLMException(f"Embedding failed: {str(e)}")
     
     async def get_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
-        """
-        Get embeddings for multiple texts
-        
-        Args:
-            texts: List of texts to embed
-            
-        Returns:
-            List of embedding vectors
-        """
+        # Get embeddings for multiple texts
         embeddings = []
         for text in texts:
             embedding = await self.get_embedding(text)
             embeddings.append(embedding)
         return embeddings
     
-    # ========================================
     # Function Calling (for Agents)
-    # ========================================
     async def generate_with_tools(
         self,
         prompt: str,
         tools: List[Dict[str, Any]],
         system_prompt: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Generate response with function/tool calling capability
-        
-        Args:
-            prompt: User prompt
-            tools: List of available tools
-            system_prompt: Optional system instructions
-            
-        Returns:
-            Response with potential function calls
-        """
+        # Generate response with function/tool calling capability
         # Format tools description
         tools_desc = "\n".join([
             f"- {t['name']}: {t['description']}"
@@ -333,11 +252,9 @@ User: {prompt}
         
         return response
     
-    # ========================================
     # Utilities
-    # ========================================
     async def count_tokens(self, text: str) -> int:
-        """Count tokens in text"""
+        # Count tokens in text
         try:
             result = await asyncio.to_thread(
                 self.model.count_tokens,
@@ -349,7 +266,7 @@ User: {prompt}
             return len(text) // 4
     
     async def is_available(self) -> bool:
-        """Check if the API is available"""
+        # Check if the API is available
         try:
             await self.generate("Say 'ok'")
             return True

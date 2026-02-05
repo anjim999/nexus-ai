@@ -1,9 +1,5 @@
-"""
-========================================
-Research Agent
-========================================
-Searches documents and retrieves relevant information
-"""
+# Research Agent
+# Searches documents and retrieves relevant information
 
 from typing import Dict, Any, List, Optional
 
@@ -13,15 +9,8 @@ from app.llm.prompts import RESEARCH_AGENT_PROMPT
 
 
 class ResearchAgent:
-    """
-    Research Agent
-    
-    Responsibilities:
-    - Search through documents using RAG
-    - Extract relevant information
-    - Summarize findings
-    - Cite sources accurately
-    """
+    # Research Agent
+    # Responsibilities: Search documents, extract info, summarize findings, cite sources
     
     def __init__(self, llm: GeminiClient, retriever: Retriever):
         self.llm = llm
@@ -34,17 +23,7 @@ class ResearchAgent:
         top_k: int = 5,
         file_filter: Optional[List[str]] = None
     ) -> Dict[str, Any]:
-        """
-        Search for relevant documents
-        
-        Args:
-            query: Search query
-            top_k: Number of results
-            file_filter: Optional filter by filename
-            
-        Returns:
-            Search results with documents and summary
-        """
+        # Search for relevant documents
         print(f"\n🔍 Research Agent Searching: '{query}'")
         # Get relevant documents
         try:
@@ -123,16 +102,7 @@ Keep the summary concise and factual.
         query: str,
         documents: List[Dict]
     ) -> List[Dict[str, Any]]:
-        """
-        Extract specific facts from documents
-        
-        Args:
-            query: What to look for
-            documents: Documents to extract from
-            
-        Returns:
-            List of extracted facts with sources
-        """
+        # Extract specific facts from documents
         if not documents:
             return []
         
@@ -172,16 +142,7 @@ Only include facts directly supported by the documents.
         query: str,
         doc_ids: List[str]
     ) -> Dict[str, Any]:
-        """
-        Compare information across multiple documents
-        
-        Args:
-            query: Comparison criteria
-            doc_ids: Documents to compare
-            
-        Returns:
-            Comparison analysis
-        """
+        # Compare information across multiple documents
         # Fetch documents
         all_docs = await self.retriever.retrieve(query, top_k=20)
         
@@ -224,7 +185,7 @@ Provide:
         }
     
     def _calculate_confidence(self, documents: List[Dict]) -> float:
-        """Calculate overall confidence based on search results"""
+        # Calculate overall confidence based on search results
         if not documents:
             return 0.0
         

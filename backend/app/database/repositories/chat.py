@@ -1,9 +1,5 @@
-"""
-========================================
-Chat Repository
-========================================
-Database operations for chat history
-"""
+# Chat Repository
+# Database operations for chat history
 
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +14,7 @@ class ChatRepository:
     """Repository for managing chat data"""
     
     async def create_conversation(self, title: str = "New Conversation") -> str:
-        """Create a new conversation"""
+    # Create a new conversation
         import uuid
         
         conversation_id = str(uuid.uuid4())
@@ -42,7 +38,7 @@ class ChatRepository:
         confidence: float = None,
         agent_steps: List[Dict] = None
     ) -> Message:
-        """Add a message to a conversation"""
+        # Add a message to a conversation
         async with AsyncSessionLocal() as session:
             # Verify conversation exists
             stmt = select(Conversation).where(Conversation.id == conversation_id)
@@ -71,7 +67,7 @@ class ChatRepository:
             return message
     
     async def get_history(self, conversation_id: str, limit: int = 50) -> List[Dict[str, Any]]:
-        """Get conversation history formatted for LLM"""
+        # Get conversation history formatted for LLM
         async with AsyncSessionLocal() as session:
             stmt = select(Message).where(
                 Message.conversation_id == conversation_id
@@ -90,7 +86,7 @@ class ChatRepository:
             ]
     
     async def get_full_history(self, conversation_id: str) -> List[Dict[str, Any]]:
-        """Get full history with metadata for frontend"""
+        # Get full history with metadata for frontend
         async with AsyncSessionLocal() as session:
             stmt = select(Message).where(
                 Message.conversation_id == conversation_id

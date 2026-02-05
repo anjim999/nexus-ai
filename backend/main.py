@@ -1,9 +1,5 @@
-"""
-========================================
-AI Ops Engineer - Main Application Entry
-========================================
-FastAPI application with multi-agent AI system
-"""
+# AI Ops Engineer - Main Application Entry
+# FastAPI application with multi-agent AI system
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -16,12 +12,10 @@ from app.core.events import startup_handler, shutdown_handler
 from app.api.v1.router import api_router
 
 
-# ========================================
 # Application Lifespan
-# ========================================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Handle startup and shutdown events"""
+    # Handle startup and shutdown events
     # Startup
     await startup_handler()
     yield
@@ -29,9 +23,7 @@ async def lifespan(app: FastAPI):
     await shutdown_handler()
 
 
-# ========================================
-# Create FastAPI Application
-# ========================================
+# Create App
 app = FastAPI(
     title="AI Ops Engineer",
     description="""
@@ -63,9 +55,7 @@ app = FastAPI(
 )
 
 
-# ========================================
 # CORS Middleware
-# ========================================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -75,18 +65,14 @@ app.add_middleware(
 )
 
 
-# ========================================
-# Include API Routes
-# ========================================
+# API Routes
 app.include_router(api_router, prefix="/api/v1")
 
 
-# ========================================
-# Health Check Endpoint
-# ========================================
+# Health Check
 @app.get("/health", tags=["Health"])
 async def health_check():
-    """Check if the API is running"""
+    # Check if the API is running
     return {
         "status": "healthy",
         "version": "1.0.0",
@@ -96,7 +82,7 @@ async def health_check():
 
 @app.get("/", tags=["Root"])
 async def root():
-    """Root endpoint with API information"""
+    # Root endpoint with API information
     return {
         "message": "🧠 AI Ops Engineer API",
         "description": "Autonomous Business Intelligence Agent",
@@ -106,12 +92,10 @@ async def root():
     }
 
 
-# ========================================
 # Global Exception Handler
-# ========================================
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
-    """Handle all unhandled exceptions"""
+    # Handle all unhandled exceptions
     return JSONResponse(
         status_code=500,
         content={
@@ -122,9 +106,7 @@ async def global_exception_handler(request, exc):
     )
 
 
-# ========================================
-# Run Application
-# ========================================
+# Run App
 if __name__ == "__main__":
     uvicorn.run(
         "main:app",

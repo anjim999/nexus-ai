@@ -1,9 +1,5 @@
-"""
-========================================
-Application Lifecycle Events
-========================================
-Startup and shutdown handlers
-"""
+# Application Lifecycle Events
+# Startup and shutdown handlers
 
 import logging
 from app.config import settings, validate_settings, ensure_directories
@@ -20,9 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 async def startup_handler():
-    """
-    Execute on application startup
-    """
+    # Execute on application startup
     logger.info("🚀 Starting AI Ops Engineer...")
     
     # 1. Validate settings
@@ -53,9 +47,7 @@ async def startup_handler():
 
 
 async def shutdown_handler():
-    """
-    Execute on application shutdown
-    """
+    # Execute on application shutdown
     logger.info("🛑 Shutting down AI Ops Engineer...")
     
     # Cleanup resources

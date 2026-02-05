@@ -1,9 +1,5 @@
-"""
-========================================
-Retriever
-========================================
-High-level retrieval interface
-"""
+# Retriever
+# High-level retrieval interface
 
 from typing import List, Dict, Any, Optional
 
@@ -12,15 +8,8 @@ from app.rag.embeddings import get_query_embedding
 
 
 class Retriever:
-    """
-    High-level document retriever
-    
-    Features:
-    - Semantic search
-    - Metadata filtering
-    - Result re-ranking
-    - Context formatting
-    """
+    # High-level document retriever
+    # Features: Semantic search, Metadata filtering, Result re-ranking, Context formatting
     
     def __init__(self):
         self.vector_store = get_vector_store()
@@ -32,18 +21,7 @@ class Retriever:
         file_filter: Optional[List[str]] = None,
         min_score: float = 0.3
     ) -> List[Dict[str, Any]]:
-        """
-        Retrieve relevant documents for a query
-        
-        Args:
-            query: Search query
-            top_k: Number of results
-            file_filter: Filter by filename
-            min_score: Minimum relevance score
-            
-        Returns:
-            List of relevant documents
-        """
+        # Retrieve relevant documents for a query
         results = await self.vector_store.search(
             query=query,
             top_k=top_k,
@@ -59,17 +37,7 @@ class Retriever:
         top_k: int = 5,
         context_window: int = 1
     ) -> str:
-        """
-        Retrieve and format as context for LLM
-        
-        Args:
-            query: Search query
-            top_k: Number of results
-            context_window: Additional context chunks
-            
-        Returns:
-            Formatted context string
-        """
+        # Retrieve and format as context for LLM
         results = await self.retrieve(query, top_k)
         
         if not results:
@@ -93,16 +61,7 @@ class Retriever:
         query: str,
         top_k: int = 5
     ) -> List[Dict[str, Any]]:
-        """
-        Get summary of sources for citations
-        
-        Args:
-            query: Search query
-            top_k: Number of results
-            
-        Returns:
-            List of source summaries
-        """
+        # Get summary of sources for citations
         results = await self.retrieve(query, top_k)
         
         sources = []

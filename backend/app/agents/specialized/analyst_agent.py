@@ -1,9 +1,5 @@
-"""
-========================================
-Analyst Agent
-========================================
-Analyzes data, generates SQL, detects patterns
-"""
+# Analyst Agent
+# Analyzes data, generates SQL, detects patterns
 
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
@@ -14,16 +10,8 @@ from app.llm.prompts import ANALYST_AGENT_PROMPT
 from app.database.connection import get_db_session
 
 class AnalystAgent:
-    """
-    Analyst Agent
-    
-    Responsibilities:
-    - Query databases using natural language to SQL
-    - Perform calculations and aggregations
-    - Detect trends and patterns
-    - Identify anomalies
-    - Generate chart data
-    """
+    # Analyst Agent
+    # Responsibilities: Natural language to SQL, calculations, trends, charts
     
     def __init__(self, llm: GeminiClient):
         self.llm = llm
@@ -43,16 +31,7 @@ class AnalystAgent:
         query: str,
         context: List[Dict] = None
     ) -> Dict[str, Any]:
-        """
-        Analyze data based on query
-        
-        Args:
-            query: Analysis request
-            context: Additional context from documents
-            
-        Returns:
-            Analysis results with data and summary
-        """
+        # Analyze data based on query
         # Determine what kind of analysis is needed
         analysis_type = await self._determine_analysis_type(query)
         
@@ -92,7 +71,7 @@ class AnalystAgent:
         }
     
     async def _determine_analysis_type(self, query: str) -> Dict[str, Any]:
-        """Determine what kind of analysis is needed"""
+        # Determine what kind of analysis is needed
         prompt = f"""
 Analyze this query and determine the type of data analysis needed.
 
@@ -130,7 +109,7 @@ Return JSON:
             }
     
     async def _generate_sql(self, query: str) -> str:
-        """Generate SQL query from natural language"""
+        # Generate SQL query from natural language
         prompt = f"""
 Generate a SQL query for the following request.
 
@@ -164,9 +143,7 @@ Return only the SQL query, no explanation.
         return sql.strip()
     
     async def _execute_query(self, sql: str) -> List[Dict]:
-        """
-        Execute SQL query against the real database
-        """
+        # Execute SQL query against the real database
         print(f"📊 Executing SQL: {sql}")
         async with get_db_session() as session:
             result = await session.execute(text(sql))
@@ -191,7 +168,7 @@ Return only the SQL query, no explanation.
         data: List[Dict],
         query: str
     ) -> List[Dict[str, Any]]:
-        """Detect patterns in data"""
+        # Detect patterns in data
         if not data:
             return []
         
@@ -232,7 +209,7 @@ Return only the SQL query, no explanation.
         data: List[Dict],
         query: str
     ) -> Dict[str, Any]:
-        """Generate chart configuration"""
+        # Generate chart configuration
         if not data:
             return None
         
@@ -278,7 +255,7 @@ Return only the SQL query, no explanation.
         data: List[Dict],
         patterns: List[Dict]
     ) -> str:
-        """Generate analysis summary"""
+        # Generate analysis summary
         if not data:
             return "No data available for analysis. The query returned no results."
         

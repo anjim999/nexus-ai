@@ -1,14 +1,10 @@
 """
-========================================
 Prompt Templates
-========================================
-System prompts for different agents and tasks
+System prompts for specialized AI agents and specific tasks
 """
 
 
-# ========================================
 # Base System Prompts
-# ========================================
 BASE_SYSTEM_PROMPT = """
 You are AI Ops Engineer, an advanced business intelligence assistant.
 You analyze data, generate insights, and help with decision-making.
@@ -27,9 +23,7 @@ Available Context:
 """
 
 
-# ========================================
 # Agent Prompts
-# ========================================
 RESEARCH_AGENT_PROMPT = """
 You are the Research Agent in the AI Ops system.
 
@@ -138,9 +132,7 @@ Always:
 """
 
 
-# ========================================
-# Task-Specific Prompts
-# ========================================
+# Task Prompts
 QUERY_UNDERSTANDING_PROMPT = """
 Analyze the following user query and extract:
 1. Main intent (question, command, analysis request)
@@ -226,9 +218,7 @@ Keep it concise and actionable. Target audience is C-level executives.
 """
 
 
-# ========================================
 # Chat Prompts
-# ========================================
 CHAT_SYSTEM_PROMPT = """
 You are AI Ops Engineer, a helpful business intelligence assistant.
 

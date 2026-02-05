@@ -1,9 +1,5 @@
-"""
-========================================
-Application Configuration
-========================================
-Centralized settings management using Pydantic
-"""
+# Application Configuration
+# Centralized settings management using Pydantic
 
 from typing import List
 from pydantic_settings import BaseSettings
@@ -12,35 +8,33 @@ import os
 
 
 class Settings(BaseSettings):
-    """
-    Application settings loaded from environment variables
-    """
+    # Application settings loaded from environment variables
     
-    # ==================== API KEYS ====================
+    # API Keys
     GEMINI_API_KEY: str = ""
     
-    # ==================== DATABASE ====================
+    # Database
     DATABASE_URL: str = "sqlite:///./data/app.db"
     
-    # ==================== VECTOR STORE ====================
+    # Vector Store
     VECTOR_STORE_PATH: str = "./data/vectorstore"
     
-    # ==================== SECURITY ====================
+    # Security
     SECRET_KEY: str = "your-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
-    # ==================== APPLICATION ====================
+    # Application
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     LOG_LEVEL: str = "INFO"
     
-    # ==================== CORS ====================
+    # CORS
     FRONTEND_URL: str = "http://localhost:5173"
     
     @property
     def ALLOWED_ORIGINS(self) -> List[str]:
-        """Dynamically generate allowed origins list"""
+        # Dynamically generate allowed origins list
         origins = [
             "http://localhost:5173",
             "http://localhost:3000",
@@ -50,26 +44,26 @@ class Settings(BaseSettings):
             origins.append(self.FRONTEND_URL)
         return origins
     
-    # ==================== FILE UPLOAD ====================
+    # File Upload
     MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024  # 10MB
     ALLOWED_EXTENSIONS: List[str] = [".pdf", ".txt", ".csv", ".json", ".docx"]
     UPLOAD_DIR: str = "./data/uploads"
     
-    # ==================== LLM SETTINGS ====================
+    # LLM Settings
     LLM_MODEL: str = "models/gemini-2.5-flash"
     LLM_TEMPERATURE: float = 0.7
     LLM_MAX_TOKENS: int = 2048
     
-    # ==================== RAG SETTINGS ====================
+    # RAG Settings
     CHUNK_SIZE: int = 2000
     CHUNK_OVERLAP: int = 400
     TOP_K_RESULTS: int = 7
     
-    # ==================== AGENT SETTINGS ====================
+    # Agent Settings
     AGENT_MAX_ITERATIONS: int = 10
     AGENT_TIMEOUT: int = 60  # seconds
     
-    # ==================== OPTIONAL INTEGRATIONS ====================
+    # Integrations
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
@@ -84,10 +78,8 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings() -> Settings:
-    """
-    Get cached settings instance
-    Uses lru_cache for performance
-    """
+    # Get cached settings instance
+    # Uses lru_cache for performance
     return Settings()
 
 
@@ -95,9 +87,9 @@ def get_settings() -> Settings:
 settings = get_settings()
 
 
-# ==================== Validation ====================
+# Validation
 def validate_settings():
-    """Validate critical settings on startup"""
+    # Validate critical settings on startup
     errors = []
     
     if not settings.GEMINI_API_KEY:
@@ -111,9 +103,9 @@ def validate_settings():
         raise ValueError(f"Configuration errors: {', '.join(errors)}")
 
 
-# ==================== Directory Setup ====================
+# Directory Setup
 def ensure_directories():
-    """Create necessary directories"""
+    # Create necessary directories
     directories = [
         settings.VECTOR_STORE_PATH,
         settings.UPLOAD_DIR,

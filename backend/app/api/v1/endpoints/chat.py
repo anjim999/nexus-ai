@@ -1,9 +1,5 @@
-"""
-========================================
-Chat Endpoints
-========================================
-Natural language chat with AI agents
-"""
+# Chat Endpoints
+# Natural language chat with AI agents
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
@@ -19,9 +15,7 @@ from app.agents.orchestrator import AgentOrchestrator
 router = APIRouter()
 
 
-# ========================================
 # Request/Response Schemas
-# ========================================
 class ChatMessage(BaseModel):
     """Single chat message"""
     role: str = Field(..., description="'user' or 'assistant'")
@@ -93,24 +87,13 @@ class ConversationHistory(BaseModel):
     updated_at: datetime
 
 
-# ========================================
 # Endpoints
-# ========================================
 @router.post("/", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
     orchestrator: AgentOrchestrator = Depends(get_orchestrator)
 ):
-    """
-    Send a message to the AI and get a response.
-    
-    The AI will:
-    1. Analyze your question
-    2. Search relevant documents (RAG)
-    3. Query databases if needed
-    4. Reason through the information
-    5. Return an answer with sources
-    """
+    # Send a message to the AI and get a response
     result = await orchestrator.process_query(
         query=request.message,
         conversation_id=request.conversation_id,
@@ -133,10 +116,7 @@ async def chat_stream(
     request: ChatRequest,
     orchestrator: AgentOrchestrator = Depends(get_orchestrator)
 ):
-    """
-    Stream chat response for real-time display.
-    Returns Server-Sent Events (SSE).
-    """
+    # Stream chat response for real-time display
     async def generate():
         async for chunk in orchestrator.process_query_stream(
             query=request.message,
@@ -152,9 +132,7 @@ async def chat_stream(
 
 @router.get("/history/{conversation_id}", response_model=ConversationHistory)
 async def get_conversation_history(conversation_id: str):
-    """
-    Get full conversation history for a conversation ID.
-    """
+    # Get full conversation history for a conversation ID
     # TODO: Implement conversation storage
     return ConversationHistory(
         conversation_id=conversation_id,
@@ -190,9 +168,7 @@ async def get_suggestions():
     }
 
 
-# ========================================
 # WebSocket for Real-time Updates
-# ========================================
 class ConnectionManager:
     """Manage WebSocket connections"""
     
@@ -220,9 +196,7 @@ async def websocket_chat(
     conversation_id: str,
     orchestrator: AgentOrchestrator = Depends(get_orchestrator)
 ):
-    """
-    WebSocket endpoint for real-time chat and agent updates.
-    """
+    # WebSocket endpoint for real-time chat and agent updates
     await manager.connect(websocket)
     
     try:
@@ -231,24 +205,38 @@ async def websocket_chat(
             data = await websocket.receive_json()
             message = data.get("message", "")
             
-            # Send agent status updates
-            await websocket.send_json({
-                "type": "agent_status",
-                "agent": "Research",
-                "status": "thinking"
-            })
-            
-            # Process query
-            result = await orchestrator.process_query(
+            # Stream processing updates and result
+            full_response_text = ""
+            async for event in orchestrator.process_query_stream(
                 query=message,
                 conversation_id=conversation_id
-            )
-            
-            # Send response
-            await websocket.send_json({
-                "type": "response",
-                "data": result
-            })
+            ):
+                event_type = event["type"]
+                
+                # Forward status updates
+                if event_type in ["status", "agent_start", "agent_done"]:
+                    await websocket.send_json(event)
+                
+                # Handle streaming text
+                elif event_type == "response_chunk":
+                    chunk = event.get("content", "")
+                    full_response_text += chunk
+                    # Send chunk for typing effect
+                    await websocket.send_json({
+                        "type": "response_chunk",
+                        "content": chunk
+                    })
+                
+                # Handle final completion
+                elif event_type == "response_end":
+                    final_data = event["data"]
+                    # Add remaining fields
+                    final_data["message"] = full_response_text
+                    
+                    await websocket.send_json({
+                        "type": "response",
+                        "data": final_data
+                    })
             
     except WebSocketDisconnect:
         manager.disconnect(websocket)

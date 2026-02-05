@@ -1,9 +1,5 @@
-"""
-========================================
-Vector Store
-========================================
-FAISS-based vector database for RAG
-"""
+# Vector Store
+# FAISS-based vector database for RAG (Retrieval-Augmented Generation)
 
 import os
 import json
@@ -20,15 +16,8 @@ from app.core.exceptions import RAGException
 
 
 class VectorStore:
-    """
-    FAISS Vector Store for semantic search
-    
-    Features:
-    - Document indexing
-    - Semantic search
-    - Metadata filtering
-    - Persistence
-    """
+    # FAISS Vector Store for semantic search
+    # Features: Document indexing, Semantic search, Metadata filtering, Persistence
     
     def __init__(self, path: str = None):
         self.path = path or settings.VECTOR_STORE_PATH
@@ -44,16 +33,14 @@ class VectorStore:
         # Load existing index if present
         self._load()
     
-    # ========================================
-    # Index Management
-    # ========================================
+    # Index Management - Create, Load, and Save FAISS indices
     def _create_index(self):
-        """Create a new FAISS index"""
+    # Create a new FAISS index
         # Using Inner Product (cosine similarity after normalization)
         self.index = faiss.IndexFlatIP(self.dimension)
     
     def _load(self):
-        """Load index from disk"""
+    # Load index from disk
         index_path = os.path.join(self.path, "faiss.index")
         docs_path = os.path.join(self.path, "documents.pkl")
         meta_path = os.path.join(self.path, "metadata.json")
@@ -73,7 +60,7 @@ class VectorStore:
             self._create_index()
     
     def _save(self):
-        """Save index to disk"""
+    # Save index to disk
         os.makedirs(self.path, exist_ok=True)
         
         index_path = os.path.join(self.path, "faiss.index")
@@ -86,26 +73,15 @@ class VectorStore:
         with open(meta_path, 'w') as f:
             json.dump(self.metadata, f)
     
-    # ========================================
-    # Document Operations
-    # ========================================
+    # Document Operations - Add, Search, and Delete documents from the store
     async def add_document(
         self,
         file_path: str,
         doc_id: str,
         metadata: Dict[str, Any] = None
     ) -> int:
-        """
-        Add a document to the vector store
-        
-        Args:
-            file_path: Path to the document file
-            doc_id: Unique document identifier
-            metadata: Additional metadata
-            
-        Returns:
-            Number of chunks indexed
-        """
+        # Add a document to the vector store
+        # Returns number of chunks indexed
         from app.rag.chunker import chunk_document
         from app.rag.embeddings import get_embeddings
         
@@ -161,18 +137,8 @@ class VectorStore:
         file_filter: Optional[List[str]] = None,
         threshold: float = 0.3
     ) -> List[Dict[str, Any]]:
-        """
-        Search for similar documents
-        
-        Args:
-            query: Search query
-            top_k: Number of results
-            file_filter: Filter by filename
-            threshold: Minimum similarity score
-            
-        Returns:
-            List of matching documents with scores
-        """
+        # Search for similar documents
+        # Returns list of matching documents with scores
         from app.rag.embeddings import get_query_embedding
         
         if self.index is None or self.index.ntotal == 0:
@@ -218,11 +184,8 @@ class VectorStore:
         return results
     
     async def delete_document(self, doc_id: str) -> bool:
-        """
-        Delete a document from the store
-        
-        Note: FAISS doesn't support deletion, so we rebuild the index
-        """
+        # Delete a document from the store
+        # Note: FAISS doesn't support deletion, so we rebuild the index
         # Find documents to keep
         docs_to_keep = []
         indices_to_keep = []
@@ -260,7 +223,7 @@ class VectorStore:
         return True
     
     async def list_documents(self) -> List[Dict[str, Any]]:
-        """List all indexed documents"""
+    # List all indexed documents
         docs = []
         for doc_id, meta in self.metadata.items():
             docs.append({
@@ -275,7 +238,7 @@ class VectorStore:
         return docs
     
     async def get_document(self, doc_id: str) -> Optional[Dict[str, Any]]:
-        """Get document metadata"""
+    # Get document metadata
         if doc_id in self.metadata:
             meta = self.metadata[doc_id]
             return {
@@ -290,16 +253,14 @@ class VectorStore:
         return None
     
     async def reindex_all(self) -> int:
-        """Reindex all documents"""
+    # Reindex all documents
         # Would need to re-read all documents from disk
         # For now, return current count
         return len(self.metadata)
     
-    # ========================================
-    # Statistics
-    # ========================================
+    # Statistics and reporting for the vector store status
     def get_stats(self) -> Dict[str, Any]:
-        """Get vector store statistics"""
+    # Get vector store statistics
         return {
             "total_documents": len(self.metadata),
             "total_chunks": len(self.documents),
@@ -308,21 +269,19 @@ class VectorStore:
         }
 
 
-# ========================================
-# Global Instance
-# ========================================
+# Global Instance management for the VectorStore across the app
 _vector_store: Optional[VectorStore] = None
 
 
 async def init_vector_store():
-    """Initialize the global vector store"""
+# Initialize the global vector store
     global _vector_store
     os.makedirs(settings.VECTOR_STORE_PATH, exist_ok=True)
     _vector_store = VectorStore()
 
 
 def get_vector_store() -> VectorStore:
-    """Get the global vector store instance"""
+# Get the global vector store instance
     global _vector_store
     if _vector_store is None:
         _vector_store = VectorStore()

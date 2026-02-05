@@ -1,9 +1,5 @@
-"""
-========================================
-Action Agent
-========================================
-Executes actions and generates outputs
-"""
+# Action Agent
+# Executes actions and generates outputs
 
 from typing import Dict, Any, List, Optional
 from datetime import datetime
@@ -14,16 +10,8 @@ from app.llm.prompts import ACTION_AGENT_PROMPT
 
 
 class ActionAgent:
-    """
-    Action Agent
-    
-    Responsibilities:
-    - Execute actions based on insights
-    - Generate reports and documents
-    - Send notifications
-    - Create alerts
-    - Schedule future tasks
-    """
+    # Action Agent
+    # Responsibilities: Execute actions, generate reports, notifications, alerts, tasks
     
     def __init__(self, llm: GeminiClient):
         self.llm = llm
@@ -45,17 +33,7 @@ class ActionAgent:
         response: str,
         context: Dict[str, Any] = None
     ) -> Dict[str, Any]:
-        """
-        Determine and execute appropriate actions
-        
-        Args:
-            query: Original user query
-            response: Generated response
-            context: Additional context
-            
-        Returns:
-            Execution results
-        """
+        # Determine and execute appropriate actions
         # Determine what actions are needed
         action_plan = await self._plan_actions(query, response, context)
         
@@ -96,7 +74,7 @@ class ActionAgent:
         response: str,
         context: Dict = None
     ) -> Dict[str, Any]:
-        """Plan what actions to take"""
+        # Plan what actions to take
         prompt = f"""
 Based on the user's request and the response, determine what actions should be taken.
 
@@ -142,11 +120,9 @@ Return JSON:
         except Exception:
             return {"actions": [], "no_action_reason": "Could not determine actions"}
     
-    # ========================================
     # Action Implementations
-    # ========================================
     async def _generate_report(self, params: Dict) -> Dict[str, Any]:
-        """Generate a report"""
+        # Generate a report
         report_type = params.get("type", "summary")
         title = params.get("title", "AI Generated Report")
         
@@ -179,7 +155,7 @@ This report was automatically generated based on AI analysis.
         }
     
     async def _send_email(self, params: Dict) -> Dict[str, Any]:
-        """Send email notification"""
+        # Send email notification
         recipients = params.get("recipients", [])
         subject = params.get("subject", "AI Ops Notification")
         
@@ -193,7 +169,7 @@ This report was automatically generated based on AI analysis.
         }
     
     async def _create_alert(self, params: Dict) -> Dict[str, Any]:
-        """Create a system alert"""
+        # Create a system alert
         alert_type = params.get("type", "info")
         message = params.get("message", "New alert from AI Ops")
         priority = params.get("priority", "medium")
@@ -207,7 +183,7 @@ This report was automatically generated based on AI analysis.
         }
     
     async def _schedule_task(self, params: Dict) -> Dict[str, Any]:
-        """Schedule a recurring task"""
+        # Schedule a recurring task
         task_name = params.get("name", "Scheduled Task")
         frequency = params.get("frequency", "daily")
         
@@ -220,7 +196,7 @@ This report was automatically generated based on AI analysis.
         }
     
     async def _update_dashboard(self, params: Dict) -> Dict[str, Any]:
-        """Update dashboard metrics"""
+        # Update dashboard metrics
         metrics = params.get("metrics", [])
         
         return {
@@ -230,7 +206,7 @@ This report was automatically generated based on AI analysis.
         }
     
     async def _export_data(self, params: Dict) -> Dict[str, Any]:
-        """Export data to file"""
+        # Export data to file
         format = params.get("format", "csv")
         
         return {
@@ -240,15 +216,13 @@ This report was automatically generated based on AI analysis.
             "file_path": f"/exports/data_{datetime.now().strftime('%Y%m%d')}.{format}"
         }
     
-    # ========================================
     # Execution Helpers
-    # ========================================
     async def validate_action(
         self,
         action_name: str,
         params: Dict
     ) -> Dict[str, Any]:
-        """Validate an action before execution"""
+        # Validate an action before execution
         if action_name not in self.actions:
             return {
                 "valid": False,
@@ -263,7 +237,7 @@ This report was automatically generated based on AI analysis.
         action_name: str,
         params: Dict
     ) -> Dict[str, Any]:
-        """Simulate action without executing"""
+        # Simulate action without executing
         validation = await self.validate_action(action_name, params)
         
         if not validation["valid"]:
@@ -277,7 +251,7 @@ This report was automatically generated based on AI analysis.
         }
     
     def list_available_actions(self) -> List[Dict[str, str]]:
-        """List all available actions"""
+        # List all available actions
         return [
             {"name": "generate_report", "description": "Generate PDF/HTML reports"},
             {"name": "send_email", "description": "Send email notifications"},

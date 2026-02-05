@@ -68,7 +68,7 @@ const Navbar = () => {
 
                 {/* Notifications */}
                 <button
-                    onClick={() => window.location.href = '/notifications'}
+                    onClick={() => navigate('/notifications')}
                     className="relative p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                 >
                     <Bell className="w-5 h-5" />
@@ -77,7 +77,7 @@ const Navbar = () => {
 
                 {/* User Avatar */}
                 <button
-                    onClick={() => window.location.href = '/settings'}
+                    onClick={() => navigate('/settings')}
                     className="ml-2 flex items-center gap-3 p-1.5 rounded-lg hover:bg-muted transition-colors"
                 >
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">

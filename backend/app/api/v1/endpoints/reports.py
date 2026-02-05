@@ -1,9 +1,5 @@
-"""
-========================================
-Reports Endpoints
-========================================
-Generate, export, and schedule reports
-"""
+# Reports Endpoints
+# Generate, export, and schedule business reports
 
 from fastapi import APIRouter, Depends, BackgroundTasks
 from fastapi.responses import FileResponse, StreamingResponse
@@ -21,9 +17,7 @@ from app.database.models import Report, ScheduledTask
 router = APIRouter()
 
 
-# ========================================
 # Enums
-# ========================================
 class ReportFormat(str, Enum):
     PDF = "pdf"
     HTML = "html"
@@ -45,11 +39,9 @@ class ScheduleFrequency(str, Enum):
     MONTHLY = "monthly"
 
 
-# ========================================
 # Schemas
-# ========================================
 class ReportGenerateRequest(BaseModel):
-    """Request to generate a report"""
+    # Request to generate a report
     title: str = Field(..., min_length=1, max_length=200)
     report_type: ReportType = ReportType.CUSTOM
     format: ReportFormat = ReportFormat.PDF
@@ -74,7 +66,7 @@ class ReportGenerateRequest(BaseModel):
 
 
 class ReportMetadata(BaseModel):
-    """Generated report metadata"""
+    # Generated report metadata
     id: str
     title: str
     report_type: ReportType
@@ -86,7 +78,7 @@ class ReportMetadata(BaseModel):
 
 
 class ScheduledReport(BaseModel):
-    """Scheduled report configuration"""
+    # Scheduled report configuration
     id: str
     title: str
     report_type: ReportType
@@ -98,7 +90,7 @@ class ScheduledReport(BaseModel):
 
 
 class ScheduleReportRequest(BaseModel):
-    """Request to schedule a recurring report"""
+    # Request to schedule a recurring report
     title: str
     report_type: ReportType
     frequency: ScheduleFrequency
@@ -107,18 +99,14 @@ class ScheduleReportRequest(BaseModel):
     sections: Optional[List[str]] = None
 
 
-# ========================================
 # Endpoints
-# ========================================
 @router.post("/generate", response_model=ReportMetadata)
 async def generate_report(
     request: ReportGenerateRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Generate a report on demand and save to DB.
-    """
+    # Generate a report on demand and save to DB
     report_id = str(uuid.uuid4())
     
     # Create DB Record for the Report
@@ -151,9 +139,7 @@ async def generate_report(
 
 @router.get("/{report_id}/download")
 async def download_report(report_id: str, format: ReportFormat = ReportFormat.PDF):
-    """
-    Download a generated report.
-    """
+    # Download a generated report
     # Generate sample PDF content
     content = f"""
     AI Ops Engineer - Generated Report
@@ -199,9 +185,7 @@ async def list_reports(
     report_type: Optional[ReportType] = None,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    List all generated reports from DB.
-    """
+    # List all generated reports from DB
     query = select(Report).order_by(desc(Report.created_at)).limit(limit)
     if report_type:
         query = query.where(Report.report_type == report_type)
@@ -225,23 +209,17 @@ async def list_reports(
 
 @router.delete("/{report_id}")
 async def delete_report(report_id: str):
-    """
-    Delete a generated report.
-    """
+    # Delete a generated report
     return {"status": "deleted", "report_id": report_id}
 
 
-# ========================================
 # Scheduled Reports
-# ========================================
 @router.post("/schedule", response_model=ScheduledReport)
 async def schedule_report(
     request: ScheduleReportRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Schedule a recurring report in DB.
-    """
+    # Schedule a recurring report in DB
     # Calculate next run time
     next_run = datetime.now().replace(hour=9, minute=0, second=0)
     if next_run < datetime.now():
@@ -297,9 +275,7 @@ async def schedule_report(
 
 @router.get("/schedule", response_model=List[ScheduledReport])
 async def list_scheduled_reports(db: AsyncSession = Depends(get_db)):
-    """
-    List all scheduled reports from DB.
-    """
+    # List all scheduled reports from DB
     from app.database.models import ScheduledTask as DbScheduledTask
     import json
     
@@ -327,9 +303,7 @@ async def list_scheduled_reports(db: AsyncSession = Depends(get_db)):
 
 @router.put("/schedule/{schedule_id}/toggle")
 async def toggle_scheduled_report(schedule_id: str):
-    """
-    Enable or disable a scheduled report.
-    """
+    # Enable or disable a scheduled report
     return {
         "schedule_id": schedule_id,
         "is_active": True,  # Toggled
@@ -339,7 +313,5 @@ async def toggle_scheduled_report(schedule_id: str):
 
 @router.delete("/schedule/{schedule_id}")
 async def delete_scheduled_report(schedule_id: str):
-    """
-    Delete a scheduled report.
-    """
+    # Delete a scheduled report
     return {"status": "deleted", "schedule_id": schedule_id}

@@ -1,9 +1,5 @@
-"""
-========================================
-Embeddings
-========================================
-Text embedding generation using Gemini
-"""
+# Embeddings
+# Text embedding generation using Gemini
 
 from typing import List
 import asyncio
@@ -17,15 +13,7 @@ genai.configure(api_key=settings.GEMINI_API_KEY)
 
 
 async def get_embedding(text: str) -> List[float]:
-    """
-    Get embedding vector for a single text
-    
-    Args:
-        text: Text to embed
-        
-    Returns:
-        Embedding vector (768 dimensions)
-    """
+    # Get embedding vector for a single text
     try:
         result = await asyncio.to_thread(
             genai.embed_content,
@@ -40,16 +28,7 @@ async def get_embedding(text: str) -> List[float]:
 
 
 async def get_embeddings(texts: List[str], batch_size: int = 100) -> List[List[float]]:
-    """
-    Get embeddings for multiple texts
-    
-    Args:
-        texts: List of texts to embed
-        batch_size: Batch size for processing
-        
-    Returns:
-        List of embedding vectors
-    """
+    # Get embeddings for multiple texts
     embeddings = []
     
     for i in range(0, len(texts), batch_size):
@@ -64,16 +43,8 @@ async def get_embeddings(texts: List[str], batch_size: int = 100) -> List[List[f
 
 
 async def get_query_embedding(query: str) -> List[float]:
-    """
-    Get embedding for a search query
-    Uses retrieval_query task type for better search
-    
-    Args:
-        query: Search query
-        
-    Returns:
-        Query embedding vector
-    """
+    # Get embedding for a search query
+    # Uses retrieval_query task type for better search
     try:
         result = await asyncio.to_thread(
             genai.embed_content,
@@ -88,16 +59,7 @@ async def get_query_embedding(query: str) -> List[float]:
 
 
 def calculate_similarity(embedding1: List[float], embedding2: List[float]) -> float:
-    """
-    Calculate cosine similarity between two embeddings
-    
-    Args:
-        embedding1: First embedding
-        embedding2: Second embedding
-        
-    Returns:
-        Similarity score (0 to 1)
-    """
+    # Calculate cosine similarity between two embeddings
     import numpy as np
     
     vec1 = np.array(embedding1)
