@@ -22,6 +22,7 @@ import { Card, Button, Badge } from '../components/ui';
 import { clsx } from 'clsx';
 import type { ChatResponse } from '../services/chatService';
 import { useChatWebSocket } from '../hooks/useChatWebSocket';
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
     id: string;
@@ -247,13 +248,25 @@ const Chat = () => {
                                 >
                                     <div
                                         className={clsx(
-                                            'inline-block rounded-2xl px-4 py-3',
+                                            'inline-block rounded-2xl px-4 py-3 text-left',
                                             message.role === 'user'
                                                 ? 'bg-gradient-to-br from-violet-600 to-purple-600 text-white'
                                                 : 'bg-muted text-foreground'
                                         )}
                                     >
-                                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                                        <ReactMarkdown
+                                            components={{
+                                                p: ({ node, ...props }) => <p className="mb-1 text-sm whitespace-pre-wrap" {...props} />,
+                                                ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2 space-y-1 text-sm" {...props} />,
+                                                ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 space-y-1 text-sm" {...props} />,
+                                                li: ({ node, ...props }) => <li className="text-sm" {...props} />,
+                                                strong: ({ node, ...props }) => <strong className="font-bold" {...props} />,
+                                                a: ({ node, ...props }) => <a className="text-violet-400 dark:text-violet-300 hover:underline font-medium" target="_blank" rel="noopener noreferrer" {...props} />,
+                                                code: ({ node, ...props }) => <code className="bg-foreground/10 px-1 py-0.5 rounded text-xs font-mono" {...props} />,
+                                            }}
+                                        >
+                                            {message.content}
+                                        </ReactMarkdown>
                                     </div>
 
                                     {/* Assistant extras */}

@@ -58,7 +58,7 @@ class ReasoningAgent:
         # Add document context
         if documents:
             doc_text = "\n".join([
-                f"- {doc.get('source', 'Unknown')}: {doc.get('content', '')[:300]}"
+                f"- {doc.get('source', 'Unknown')}: {doc.get('content', '')[:3000]}"
                 for doc in documents[:5]  # Limit to top 5
             ])
             parts.append(f"**Relevant Documents:**\n{doc_text}")

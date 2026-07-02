@@ -17,7 +17,7 @@ async def get_embedding(text: str) -> List[float]:
     try:
         result = await asyncio.to_thread(
             genai.embed_content,
-            model="models/text-embedding-004",
+            model="models/gemini-embedding-001",
             content=text,
             task_type="retrieval_document"
         )
@@ -48,7 +48,7 @@ async def get_query_embedding(query: str) -> List[float]:
     try:
         result = await asyncio.to_thread(
             genai.embed_content,
-            model="models/text-embedding-004",
+            model="models/gemini-embedding-001",
             content=query,
             task_type="retrieval_query"
         )

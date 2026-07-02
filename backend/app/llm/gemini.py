@@ -187,7 +187,7 @@ Follow this exact schema:
         try:
             result = await asyncio.to_thread(
                 genai.embed_content,
-                model="models/embedding-001",
+                model="models/gemini-embedding-001",
                 content=text,
                 task_type="retrieval_document"
             )

@@ -1,0 +1,9 @@
+Product,Category,Price,Quantity_Sold,Revenue,Region,Month
+SuperWidget X1,Electronics,1200.00,50,60000.00,North,January
+SuperWidget X1,Electronics,1200.00,45,54000.00,North,February
+EcoBreeze Fan,Home Appliances,150.00,200,30000.00,East,January
+EcoBreeze Fan,Home Appliances,150.00,250,37500.00,East,February
+AuraSmart Bulb,Home Automation,45.00,500,22500.00,West,January
+AuraSmart Bulb,Home Automation,45.00,650,29250.00,West,February
+HydroFlask 32oz,Outdoor,35.00,150,5250.00,South,January
+HydroFlask 32oz,Outdoor,35.00,180,6300.00,South,February

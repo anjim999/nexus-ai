@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # Application
-    ENVIRONMENT: str = "development"
+    ENVIRONMENT: str = "production"
     DEBUG: bool = True
     LOG_LEVEL: str = "INFO"
     

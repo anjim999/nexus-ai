@@ -4,7 +4,7 @@
 **Generated For:** Project Owner (Anji)  
 **Goal:** Explain *every connected piece* of the system in extreme detail.
 
----
+---  
 
 # 🔗 The Connection Chain: From User Click to Database Row
 

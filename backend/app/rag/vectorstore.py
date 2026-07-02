@@ -21,7 +21,7 @@ class VectorStore:
     
     def __init__(self, path: str = None):
         self.path = path or settings.VECTOR_STORE_PATH
-        self.dimension = 768  # Gemini embedding dimension
+        self.dimension = 3072  # Gemini embedding dimension
         
         # Initialize FAISS index
         self.index: Optional[faiss.IndexFlatIP] = None
