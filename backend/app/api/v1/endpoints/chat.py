@@ -9,7 +9,8 @@ from datetime import datetime
 import json
 import asyncio
 
-from app.dependencies import get_orchestrator
+from app.dependencies import get_orchestrator, get_db
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.agents.orchestrator import AgentOrchestrator
 
 router = APIRouter()
@@ -21,8 +22,9 @@ class ChatMessage(BaseModel):
     role: str = Field(..., description="'user' or 'assistant'")
     content: str = Field(..., description="Message content")
     timestamp: datetime = Field(default_factory=datetime.now)
-    sources: Optional[List[str]] = Field(default=None, description="Source citations")
+    sources: Optional[List[dict]] = Field(default=None, description="Source citations")
     confidence: Optional[float] = Field(default=None, description="Confidence score 0-1")
+    agent_steps: Optional[List[dict]] = Field(default=None, description="Agent execution steps")
 
 
 class ChatRequest(BaseModel):
@@ -87,6 +89,14 @@ class ConversationHistory(BaseModel):
     updated_at: datetime
 
 
+class ConversationListItem(BaseModel):
+    """Conversation summary item"""
+    id: str
+    title: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+
 # Endpoints
 @router.post("/", response_model=ChatResponse)
 async def chat(
@@ -130,24 +140,93 @@ async def chat_stream(
     )
 
 
+@router.get("/conversations", response_model=List[ConversationListItem])
+async def list_conversations(
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    List all conversations.
+    """
+    from sqlalchemy import select
+    from app.database.models import Conversation
+    
+    query = select(Conversation).order_by(Conversation.updated_at.desc())
+    result = await db.execute(query)
+    conversations = result.scalars().all()
+    
+    return [
+        ConversationListItem(
+            id=c.id,
+            title=c.title,
+            created_at=c.created_at,
+            updated_at=c.updated_at
+        ) for c in conversations
+    ]
+
+
 @router.get("/history/{conversation_id}", response_model=ConversationHistory)
-async def get_conversation_history(conversation_id: str):
-    # Get full conversation history for a conversation ID
-    # TODO: Implement conversation storage
+async def get_conversation_history(
+    conversation_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    from sqlalchemy import select
+    from app.database.models import Conversation, Message
+    
+    # Get the conversation
+    query = select(Conversation).where(Conversation.id == conversation_id)
+    result = await db.execute(query)
+    conversation = result.scalar_one_or_none()
+    
+    if not conversation:
+        return ConversationHistory(
+            conversation_id=conversation_id,
+            messages=[],
+            created_at=datetime.now(),
+            updated_at=datetime.now()
+        )
+        
+    # Get messages
+    msg_query = select(Message).where(Message.conversation_id == conversation_id).order_by(Message.created_at)
+    msg_result = await db.execute(msg_query)
+    messages = msg_result.scalars().all()
+    
     return ConversationHistory(
         conversation_id=conversation_id,
-        messages=[],
-        created_at=datetime.now(),
-        updated_at=datetime.now()
+        messages=[
+            ChatMessage(
+                role=m.role.value if hasattr(m.role, 'value') else m.role,
+                content=m.content,
+                timestamp=m.created_at,
+                sources=json.loads(m.sources_json) if m.sources_json else None,
+                confidence=m.confidence,
+                agent_steps=json.loads(m.agent_steps_json) if getattr(m, 'agent_steps_json', None) else None
+            ) for m in messages
+        ],
+        created_at=conversation.created_at,
+        updated_at=conversation.updated_at
     )
 
 
 @router.delete("/history/{conversation_id}")
-async def delete_conversation(conversation_id: str):
+async def delete_conversation(
+    conversation_id: str,
+    db: AsyncSession = Depends(get_db)
+):
     """
     Delete a conversation and its history.
     """
-    # TODO: Implement deletion
+    from sqlalchemy import delete
+    from app.database.models import Conversation, Message
+    
+    # Delete associated messages first to satisfy foreign key constraint
+    message_query = delete(Message).where(Message.conversation_id == conversation_id)
+    await db.execute(message_query)
+    
+    # Delete the conversation itself
+    conversation_query = delete(Conversation).where(Conversation.id == conversation_id)
+    await db.execute(conversation_query)
+    await db.commit()
+    
     return {"status": "deleted", "conversation_id": conversation_id}
 
 
@@ -194,7 +273,8 @@ manager = ConnectionManager()
 async def websocket_chat(
     websocket: WebSocket,
     conversation_id: str,
-    orchestrator: AgentOrchestrator = Depends(get_orchestrator)
+    orchestrator: AgentOrchestrator = Depends(get_orchestrator),
+    db: AsyncSession = Depends(get_db)
 ):
     # WebSocket endpoint for real-time chat and agent updates
     await manager.connect(websocket)
@@ -204,6 +284,27 @@ async def websocket_chat(
             # Receive message from client
             data = await websocket.receive_json()
             message = data.get("message", "")
+            
+            from app.database.models import Conversation, Message, MessageRole
+            from sqlalchemy import select
+            
+            # Create conversation if it doesn't exist
+            query = select(Conversation).where(Conversation.id == conversation_id)
+            result = await db.execute(query)
+            conversation = result.scalar_one_or_none()
+            if not conversation:
+                conversation = Conversation(id=conversation_id, title=message[:50])
+                db.add(conversation)
+                await db.commit()
+                
+            # Save User Message
+            user_msg = Message(
+                conversation_id=conversation_id,
+                role=MessageRole.USER,
+                content=message
+            )
+            db.add(user_msg)
+            await db.commit()
             
             # Stream processing updates and result
             full_response_text = ""
@@ -232,6 +333,18 @@ async def websocket_chat(
                     final_data = event["data"]
                     # Add remaining fields
                     final_data["message"] = full_response_text
+                    
+                    # Save AI Message
+                    ai_msg = Message(
+                        conversation_id=conversation_id,
+                        role=MessageRole.ASSISTANT,
+                        content=full_response_text,
+                        sources_json=json.dumps(final_data.get("sources")) if final_data.get("sources") else None,
+                        confidence=final_data.get("confidence"),
+                        agent_steps_json=json.dumps(final_data.get("agent_steps")) if final_data.get("agent_steps") else None
+                    )
+                    db.add(ai_msg)
+                    await db.commit()
                     
                     await websocket.send_json({
                         "type": "response",

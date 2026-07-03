@@ -36,6 +36,13 @@ export interface ChatResponse {
     actions_taken?: string[];
 }
 
+export interface ConversationItem {
+    id: string;
+    title: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
 export const chatService = {
     async sendMessage(request: ChatRequest): Promise<ChatResponse> {
         const response = await api.post<ChatResponse>('/chat/', request);
@@ -44,6 +51,16 @@ export const chatService = {
 
     async getHistory(conversationId: string) {
         const response = await api.get(`/chat/history/${conversationId}`);
+        return response.data;
+    },
+
+    async getConversations(): Promise<ConversationItem[]> {
+        const response = await api.get<ConversationItem[]>('/chat/conversations');
+        return response.data;
+    },
+
+    async deleteConversation(conversationId: string) {
+        const response = await api.delete(`/chat/history/${conversationId}`);
         return response.data;
     },
 

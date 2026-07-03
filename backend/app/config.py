@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     # LLM Settings
     LLM_MODEL: str = "models/gemini-2.5-flash"
     LLM_TEMPERATURE: float = 0.7
-    LLM_MAX_TOKENS: int = 2048
+    LLM_MAX_TOKENS: int = 4096
     
     # RAG Settings
     CHUNK_SIZE: int = 2000

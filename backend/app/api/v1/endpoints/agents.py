@@ -8,6 +8,8 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
 from enum import Enum
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.dependencies import get_db
 
 router = APIRouter()
 
@@ -168,39 +170,94 @@ async def get_agent(agent_id: str):
 @router.get("/{agent_id}/logs", response_model=List[AgentExecutionLog])
 async def get_agent_logs(
     agent_id: str,
-    limit: int = 10
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Get recent execution logs for an agent.
     """
-    return [
-        AgentExecutionLog(
-            query_id="query_123",
-            query="Why did sales drop last week?",
-            started_at=datetime.now(),
-            completed_at=datetime.now(),
-            status="completed",
-            agents_involved=["research", "analyst", "reasoning"],
-            thoughts=[
+    from sqlalchemy import select, desc
+    from app.database.models import AgentLog, Message, Conversation
+    
+    agent_name_mapping = {
+        "research_agent": "Research Agent",
+        "analyst_agent": "Analyst Agent",
+        "reasoning_agent": "Reasoning Agent",
+        "action_agent": "Action Agent",
+        "scheduler_agent": "Scheduler Agent"
+    }
+    
+    mapped_name = agent_name_mapping.get(agent_id, agent_id)
+    
+    # Get recent logs for this agent
+    query = select(AgentLog).where(AgentLog.agent_name == mapped_name).order_by(desc(AgentLog.created_at)).limit(limit)
+    result = await db.execute(query)
+    logs = result.scalars().all()
+    
+    # Group by query_id (conversation_id)
+    execution_logs = []
+    seen_queries = set()
+    
+    for log in logs:
+        if log.query_id in seen_queries:
+            continue
+        seen_queries.add(log.query_id)
+        
+        # Fetch all logs for this query to get full picture
+        full_query = select(AgentLog).where(AgentLog.query_id == log.query_id).order_by(AgentLog.created_at)
+        full_result = await db.execute(full_query)
+        all_logs = full_result.scalars().all()
+        
+        thoughts = []
+        agents_involved = set()
+        total_duration = 0
+        
+        for l in all_logs:
+            agents_involved.add(l.agent_name)
+            if l.duration_ms:
+                total_duration += l.duration_ms
+            thoughts.append(
                 AgentThought(
-                    timestamp=datetime.now(),
-                    agent="research",
-                    thought="I need to find documents related to sales",
-                    action="search_documents",
-                    observation="Found 3 relevant documents"
-                ),
-                AgentThought(
-                    timestamp=datetime.now(),
-                    agent="analyst",
-                    thought="I should query the sales database",
-                    action="sql_query",
-                    observation="Retrieved 7 days of sales data"
+                    timestamp=l.created_at,
+                    agent=l.agent_name,
+                    thought=l.thought or "",
+                    action=l.action,
+                    observation=l.observation,
+                    confidence=l.confidence
                 )
-            ],
-            final_answer="Sales dropped due to...",
-            total_duration_ms=2340
+            )
+            
+        # Get query and final answer from Message
+        msg_query = select(Message).where(Message.conversation_id == log.query_id).order_by(Message.created_at)
+        msg_result = await db.execute(msg_query)
+        messages = msg_result.scalars().all()
+        
+        user_query = "Unknown Query"
+        final_answer = None
+        started_at = log.created_at
+        
+        for m in messages:
+            if m.role.value == "user" and user_query == "Unknown Query":
+                user_query = m.content
+                started_at = m.created_at
+            elif m.role.value == "assistant":
+                final_answer = m.content[:200] + "..." if len(m.content) > 200 else m.content
+                
+        execution_logs.append(
+            AgentExecutionLog(
+                query_id=log.query_id,
+                query=user_query,
+                started_at=started_at,
+                completed_at=all_logs[-1].created_at if all_logs else None,
+                status="completed",
+                agents_involved=list(agents_involved),
+                thoughts=thoughts,
+                final_answer=final_answer,
+                total_duration_ms=total_duration
+            )
         )
-    ]
+        
+    return execution_logs[:limit]
 
 
 @router.post("/run", response_model=AgentExecutionLog)
@@ -238,36 +295,31 @@ async def get_live_status():
 
 
 @router.get("/thoughts/{query_id}", response_model=List[AgentThought])
-async def get_agent_thoughts(query_id: str):
+async def get_agent_thoughts(
+    query_id: str,
+    db: AsyncSession = Depends(get_db)
+):
     """
     Get the chain of thoughts for a specific query.
     Shows how agents reasoned through the problem.
     """
+    from sqlalchemy import select
+    from app.database.models import AgentLog
+    
+    query = select(AgentLog).where(AgentLog.query_id == query_id).order_by(AgentLog.created_at)
+    result = await db.execute(query)
+    logs = result.scalars().all()
+    
     return [
         AgentThought(
-            timestamp=datetime.now(),
-            agent="Research Agent",
-            thought="The user wants to know about sales performance. Let me search relevant documents.",
-            action="search_documents('sales performance')",
-            observation="Found 3 documents: sales_report.pdf, quarterly_review.docx, metrics.csv",
-            confidence=0.92
-        ),
-        AgentThought(
-            timestamp=datetime.now(),
-            agent="Analyst Agent",
-            thought="I have context from documents. Now I should query the actual sales data.",
-            action="sql_query('SELECT SUM(amount), date FROM sales GROUP BY date')",
-            observation="Retrieved 30 days of sales data showing 15% decline in week 3",
-            confidence=0.88
-        ),
-        AgentThought(
-            timestamp=datetime.now(),
-            agent="Reasoning Agent",
-            thought="Combining document insights with data analysis. The decline correlates with...",
-            action="synthesize_insights()",
-            observation="Identified 3 contributing factors with high confidence",
-            confidence=0.85
+            timestamp=log.created_at,
+            agent=log.agent_name,
+            thought=log.thought or "",
+            action=log.action,
+            observation=log.observation,
+            confidence=log.confidence
         )
+        for log in logs
     ]
 
 

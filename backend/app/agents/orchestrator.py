@@ -127,9 +127,9 @@ class AgentOrchestrator:
         # Routing after Reasoning
         def route_after_reasoning(state: GraphState) -> str:
             query_analysis = state.get("context", {}).get("query_analysis", {})
-            if self._needs_action(query_analysis):
+            if self._needs_action(query_analysis, state.get("query", "")):
                 return "action"
-            if self._needs_scheduling(query_analysis):
+            if self._needs_scheduling(query_analysis, state.get("query", "")):
                 return "scheduler"
             return END
             
@@ -146,7 +146,7 @@ class AgentOrchestrator:
         # Routing after Action
         def route_after_action(state: GraphState) -> str:
             query_analysis = state.get("context", {}).get("query_analysis", {})
-            if self._needs_scheduling(query_analysis):
+            if self._needs_scheduling(query_analysis, state.get("query", "")):
                 return "scheduler"
             return END
             
@@ -163,6 +163,22 @@ class AgentOrchestrator:
         
         # Compile the graph
         self.app = workflow.compile()
+        
+    async def _log_agent_step(self, query_id: str, step: Dict[str, Any]):
+        from app.database.connection import AsyncSessionLocal
+        from app.database.models import AgentLog
+        async with AsyncSessionLocal() as session:
+            log = AgentLog(
+                query_id=query_id,
+                agent_name=step.get("agent", "Unknown"),
+                thought=step.get("thought", ""),
+                action=step.get("action", ""),
+                observation=step.get("observation", ""),
+                confidence=step.get("confidence"),
+                duration_ms=step.get("duration_ms")
+            )
+            session.add(log)
+            await session.commit()
     
     # LangGraph Nodes
     async def _node_analyze_query(self, state: GraphState) -> Dict[str, Any]:
@@ -191,6 +207,8 @@ class AgentOrchestrator:
             step["action"] = f"Searched documents, found {len(results.get('documents', []))} relevant chunks"
             step["duration_ms"] = int((time.time() - start) * 1000)
             
+            await self._log_agent_step(state["conversation_id"], step)
+            
             return {
                 "documents": new_documents,
                 "sources": new_sources,
@@ -200,9 +218,8 @@ class AgentOrchestrator:
             step["status"] = "error"
             step["action"] = str(e)
             step["duration_ms"] = int((time.time() - start) * 1000)
-            return {
-                "agent_steps": list(state.get("agent_steps", [])) + [step]
-            }
+            await self._log_agent_step(state["conversation_id"], step)
+            raise
 
     async def _node_analyst_agent(self, state: GraphState) -> Dict[str, Any]:
         import time
@@ -229,6 +246,8 @@ class AgentOrchestrator:
             step["action"] = results.get("action", "Analyzed data")
             step["duration_ms"] = int((time.time() - start) * 1000)
             
+            await self._log_agent_step(state["conversation_id"], step)
+            
             return {
                 "data_results": new_data,
                 "charts": new_charts,
@@ -238,9 +257,8 @@ class AgentOrchestrator:
             step["status"] = "error"
             step["action"] = str(e)
             step["duration_ms"] = int((time.time() - start) * 1000)
-            return {
-                "agent_steps": list(state.get("agent_steps", [])) + [step]
-            }
+            await self._log_agent_step(state["conversation_id"], step)
+            raise
 
     async def _node_reasoning_agent(self, state: GraphState) -> Dict[str, Any]:
         import time
@@ -264,20 +282,20 @@ class AgentOrchestrator:
             step["action"] = "Synthesized information"
             step["duration_ms"] = int((time.time() - start) * 1000)
             
+            await self._log_agent_step(state["conversation_id"], step)
+            
             return {
-                "final_response": results.get("response", ""),
-                "confidence": results.get("confidence", 0.8),
                 "insights": results.get("insights", []),
+                "final_response": results.get("response"),
+                "confidence": results.get("confidence", 0.8),
                 "agent_steps": list(state.get("agent_steps", [])) + [step]
             }
         except Exception as e:
             step["status"] = "error"
             step["action"] = f"Error: {str(e)}"
             step["duration_ms"] = int((time.time() - start) * 1000)
-            return {
-                "final_response": "I was unable to process your request.",
-                "agent_steps": list(state.get("agent_steps", [])) + [step]
-            }
+            await self._log_agent_step(state["conversation_id"], step)
+            raise
 
     async def _node_action_agent(self, state: GraphState) -> Dict[str, Any]:
         import time
@@ -302,7 +320,34 @@ class AgentOrchestrator:
             step["action"] = f"Executed {len(results.get('actions', []))} actions"
             step["duration_ms"] = int((time.time() - start) * 1000)
             
+            await self._log_agent_step(state["conversation_id"], step)
+            
+            # Build action details summary to append to response
+            action_details = []
+            for r in results.get("results", []):
+                if r.get("status") == "success":
+                    result_info = r.get("result", {})
+                    if r["action"] == "send_email":
+                        recipients = result_info.get("recipients", [])
+                        subject = result_info.get("subject", "N/A")
+                        action_details.append(f"📧 Email sent to: {', '.join(recipients) if recipients else 'N/A'} | Subject: {subject} | Status: {result_info.get('status', 'sent')}")
+                    elif r["action"] == "schedule_task":
+                        action_details.append(f"⏰ Scheduled: {result_info.get('name', 'N/A')} | Frequency: {result_info.get('frequency', 'N/A')}")
+                    elif r["action"] == "generate_report":
+                        action_details.append(f"📄 Report generated: {result_info.get('title', 'N/A')} | Type: {result_info.get('type', 'N/A')}")
+                    else:
+                        action_details.append(f"✅ {r['action']}: success")
+            
+            resp = state.get("final_response", "") or ""
+            if action_details:
+                details_text = "\n".join(action_details)
+                if resp:
+                    resp += f"\n\n**Actions Executed:**\n{details_text}"
+                else:
+                    resp = f"**Actions Executed:**\n{details_text}"
+            
             return {
+                "final_response": resp,
                 "actions_taken": new_actions,
                 "agent_steps": list(state.get("agent_steps", [])) + [step]
             }
@@ -310,9 +355,8 @@ class AgentOrchestrator:
             step["status"] = "error"
             step["action"] = str(e)
             step["duration_ms"] = int((time.time() - start) * 1000)
-            return {
-                "agent_steps": list(state.get("agent_steps", [])) + [step]
-            }
+            await self._log_agent_step(state["conversation_id"], step)
+            raise
 
     async def _node_scheduler_agent(self, state: GraphState) -> Dict[str, Any]:
         import time
@@ -331,14 +375,24 @@ class AgentOrchestrator:
             )
             
             step["status"] = "done"
-            step["action"] = f"Scheduled task: {results.get('job_details', {}).get('task_name', 'Unknown')}"
+            job = results.get('job_details', {})
+            task_name = job.get('task_name', 'Unknown')
+            step["action"] = f"Scheduled task: {task_name}"
             step["duration_ms"] = int((time.time() - start) * 1000)
+            
+            await self._log_agent_step(state["conversation_id"], step)
+            
+            # Build detailed scheduler message
+            cron_expr = job.get('cron_expression', 'N/A')
+            priority = job.get('priority', 'N/A')
+            schedule_type = job.get('schedule_type', 'N/A')
+            scheduler_msg = f"\n\n**[Scheduler]:** ✅ Scheduled task '{task_name}' successfully.\n- Schedule Type: {schedule_type}\n- Cron Expression: `{cron_expr}`\n- Priority: {priority}"
             
             resp = state.get("final_response", "") or ""
             if resp:
-                resp += f"\n\n[Scheduler]: {results.get('message')}"
+                resp += scheduler_msg
             else:
-                resp = f"[Scheduler]: {results.get('message')}"
+                resp = scheduler_msg
                 
             return {
                 "final_response": resp,
@@ -348,9 +402,8 @@ class AgentOrchestrator:
             step["status"] = "error"
             step["action"] = str(e)
             step["duration_ms"] = int((time.time() - start) * 1000)
-            return {
-                "agent_steps": list(state.get("agent_steps", [])) + [step]
-            }
+            await self._log_agent_step(state["conversation_id"], step)
+            raise
             
     # API Entry Points
     async def process_query(
@@ -488,9 +541,9 @@ class AgentOrchestrator:
                             "result": "Synthesis complete"
                         }
                         query_analysis = final_state.get("context", {}).get("query_analysis", {})
-                        if self._needs_action(query_analysis):
+                        if self._needs_action(query_analysis, query):
                             yield {"type": "agent_start", "agent": "action", "status": "executing"}
-                        elif self._needs_scheduling(query_analysis):
+                        elif self._needs_scheduling(query_analysis, query):
                             yield {"type": "agent_start", "agent": "scheduler", "status": "planning"}
                             
                     elif node_name == "action":
@@ -500,7 +553,7 @@ class AgentOrchestrator:
                             "result": f"Executed {len(node_output.get('actions_taken', []))} actions"
                         }
                         query_analysis = final_state.get("context", {}).get("query_analysis", {})
-                        if self._needs_scheduling(query_analysis):
+                        if self._needs_scheduling(query_analysis, query):
                             yield {"type": "agent_start", "agent": "scheduler", "status": "planning"}
                             
                     elif node_name == "scheduler":
@@ -534,9 +587,33 @@ class AgentOrchestrator:
             }
             
         except Exception as e:
+            error_msg = f"Error occurred: {str(e)}"
+            friendly_msg = "I encountered an error while processing your request, likely due to AI rate limits. Please wait a moment and try again."
+            if "RetryError" in error_msg or "429" in error_msg:
+                error_msg = "Google Gemini Rate Limit Exceeded (429 Too Many Requests)."
+            
             yield {
                 "type": "status",
-                "message": f"Error occurred: {str(e)}"
+                "message": error_msg
+            }
+            yield {
+                "type": "response_chunk",
+                "content": friendly_msg
+            }
+            yield {
+                "type": "response_end",
+                "data": {
+                    "conversation_id": conversation_id,
+                    "final_response": friendly_msg,
+                    "confidence": 0.0,
+                    "agent_steps": final_state.get("agent_steps", []) + [
+                        {
+                            "agent": "orchestrator",
+                            "status": "error",
+                            "action": error_msg
+                        }
+                    ]
+                }
             }
             
     # Helper Methods
@@ -586,24 +663,36 @@ class AgentOrchestrator:
         
         return False
     
-    def _needs_action(self, analysis: Dict) -> bool:
+    def _needs_action(self, analysis: Dict, query: str = "") -> bool:
         # Check if query needs action execution
-        action_keywords = ["send", "create", "generate", "email", "report", "schedule"]
+        action_keywords = ["send", "create", "generate", "email", "report", "schedule", "mail"]
         intent = analysis.get("intent", "").lower()
         
         for keyword in action_keywords:
             if keyword in intent:
                 return True
+                
+        # Check original query
+        query_lower = query.lower()
+        for keyword in action_keywords:
+            if keyword in query_lower:
+                return True
         
         return analysis.get("output_type") in ["report", "action"]
 
-    def _needs_scheduling(self, analysis: Dict) -> bool:
+    def _needs_scheduling(self, analysis: Dict, query: str = "") -> bool:
         # Check if query needs scheduling
         keywords = ["schedule", "remind", "daily", "weekly", "monthly", "every", "tomorrow", "recurring", "automate"]
         intent = analysis.get("intent", "").lower()
         
         for keyword in keywords:
             if keyword in intent:
+                return True
+                
+        # Check original query
+        query_lower = query.lower()
+        for keyword in keywords:
+            if keyword in query_lower:
                 return True
         
         return False

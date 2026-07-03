@@ -48,6 +48,8 @@ class GeminiClient:
         prompt: str,
         system_prompt: Optional[str] = None
     ) -> str:
+        # Pacing sleep to avoid 429 rate limit exceptions on free tier API
+        await asyncio.sleep(3.5)
         # Generate text response from prompt
         print(f"--- Gemini Generating with model: {settings.LLM_MODEL} ---")
         try:
@@ -104,17 +106,26 @@ Follow this exact schema:
         
         # Clean response (remove markdown if present)
         response = response.strip()
-        if response.startswith("```json"):
-            response = response[7:]
-        if response.startswith("```"):
-            response = response[3:]
-        if response.endswith("```"):
-            response = response[:-3]
+        import re
+        if isinstance(schema, list):
+            json_match = re.search(r'(\[.*\])', response, re.DOTALL)
+        else:
+            json_match = re.search(r'(\{.*\})', response, re.DOTALL)
+            
+        if json_match:
+            response = json_match.group(1)
+        else:
+            if response.startswith("```json"):
+                response = response[7:]
+            if response.startswith("```"):
+                response = response[3:]
+            if response.endswith("```"):
+                response = response[:-3]
         
         try:
             return json.loads(response.strip())
         except json.JSONDecodeError as e:
-            raise LLMException(f"Failed to parse JSON response: {str(e)}")
+            raise LLMException(f"Failed to parse JSON response: {str(e)} | Raw response was: {response}")
     
     # Streaming
     async def generate_stream(

@@ -1,19 +1,19 @@
-CUSTOMER FEEDBACK AND CHURN ANALYSIS - Q1 2026
+CUSTOMER SATISFACTION & CHURN RISK ANALYSIS - Q1 2026
 
-1. OVERVIEW
-This report details customer feedback gathered during Q1 2026. We analyzed 150 customer reviews and support interactions to identify key pain points and churn risks.
+## 1. SEGMENTATION & ENGAGEMENT ANALYSIS
+This document details customer health metrics and support insights gathered across Q1 2026. We analyzed 150 customer reviews and support interactions to identify key pain points and churn risks.
 
-2. SEGMENT A: ENTERPRISE CUSTOMERS
-Enterprise clients are generally satisfied with product performance, rating it 4.5/5. However, they expressed concerns over API rate limits. 
-- Acme Corp (ID: ENT-902) noted that they hit rate limits twice during peak hours, causing a delay in their ETL pipelines. They requested a higher tier.
-- Globex Corporation (ID: ENT-331) requested single sign-on (SSO) support for better access controls.
+### SEGMENT A: ENTERPRISE CLIENTS (HIGH ARPU)
+Enterprise clients are generally satisfied with product performance, rating it 4.5/5. However, they expressed concerns over API rate limits during peak operational hours.
+- **Acme Corp (ID: ENT-902)**: Reported hitting API rate limits twice during peak hours, causing a delay in their ETL pipelines. They requested a higher tier with a 50% increase in API throughput.
+- **Globex Corporation (ID: ENT-331)**: Encountered rate limit blocks that caused sync failures in their CRM pipeline. They requested single sign-on (SSO) support for better access controls.
 
-3. SEGMENT B: MID-MARKET CUSTOMERS
+### SEGMENT B: MID-MARKET CLIENTS (CHURN RISK: 12%)
 Mid-market clients have a higher churn risk (currently estimated at 12%). The primary complaint is the lack of dedicated account manager support.
-- Initech (ID: MID-104) is unhappy with response times for critical bugs, which currently averages 18 hours. They are actively comparing alternatives.
-- Hooli (ID: MID-705) mentioned they might downgrade their subscription unless we release the automated scheduling feature by March.
+- **Initech (ID: MID-104)**: Extremely unsatisfied with support response times for critical bugs. Their average ticket resolution time is currently 18 hours. They are actively comparing alternatives.
+- **Hooli (ID: MID-705)**: Mentioned they will downgrade their subscription unless we release the automated scheduling and database synchronization features before March 15, 2026.
 
-4. RECOMMENDATIONS
-- Increase API rate limits for Enterprise customers by 50% immediately.
-- Assign a dedicated support specialist to high-risk mid-market clients like Initech.
-- Roll out the automated scheduling module before March 15, 2026.
+## 2. STRATEGIC RECOMMENDATIONS & TARGET ACTIONS
+1. **API Rate Limits**: Immediately increase rate limits for Enterprise customers (Acme Corp & Globex) by 50% to prevent ETL delays.
+2. **Dedicated Support**: Assign a dedicated support specialist to high-risk mid-market clients like Initech.
+3. **Automated Scheduling**: Roll out the automated scheduling module before March 15, 2026 to appease Hooli.

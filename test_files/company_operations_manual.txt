@@ -1,0 +1,22 @@
+# VYAPAR360 (NEXUS AI) STANDARD OPERATIONS & SYSTEM SECURITY MANUAL
+
+This manual defines the operating procedures, automated task criteria, and communications configurations for the Vyapar360 platform.
+
+## 1. SALES REPORTING & DATA COMMUNICATIONS SOP
+- The sales analytics system processes transaction records from the internal SQL database to measure regional performance and product line popularity.
+- **Reporting Rule**: Any user request asking the system to "send an email report", "dispatch email summary", or "generate and email sales reports" must trigger the creation of a system report.
+- **Recipient Address**: The generated PDF report must be emailed directly to the default distribution mailbox: `sales-alerts@vyapar360.com`.
+- **System Notification**: The action agent must log the email event and raise a low-priority system notification indicating that the dispatch was successful.
+
+## 2. DATABASE BACKUP & SCHEDULING POLICIES
+- To ensure operational continuity, critical business database states must be backed up securely.
+- **Priority**: Database backup registrations are categorized as `critical` priority to prevent data loss.
+- **Backup Time**: Standard platform backups are run daily at exactly 12:00 PM (noon).
+- **Automation Expression**: The daily cron schedule expression required for this automation is `0 12 * * *`.
+- **Target Repository**: Backups are encrypted and stored in the secure s3://vyapar360-backups/ database repository.
+- **Supervisor Verification**: The Scheduler Agent must register all backup tasks in the system job store and output a verification message confirming the task configuration.
+
+## 3. SECURITY ALERTS & SYSTEM INCIDENTS
+- In the event that an automated scheduled database backup fails or meets an exception:
+  - The system must immediately trigger a high-priority alarm in the administrator dashboard.
+  - The support queue must assign an engineer to inspect the repository access parameters.

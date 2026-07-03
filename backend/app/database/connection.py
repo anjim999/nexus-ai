@@ -25,7 +25,7 @@ elif database_url.startswith("postgresql://"):
 # ... (checking database_url)
 
 engine_kwargs = {
-    "echo": settings.DEBUG,
+    "echo": False,  # Disabled to prevent terminal flooding with SQL logs
     "future": True,
 }
 
