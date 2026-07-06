@@ -14,7 +14,7 @@ export const ChatProvider = ({ children }) => {
     const [historyLoading, setHistoryLoading] = useState(false);
     const [historySidebarOpen, setHistorySidebarOpen] = useState(true);
 
-    const { sendMessage: wsSendMessage, agentStatus, isConnected, status } = useChatWebSocket(conversationId);
+    const { sendMessage: wsSendMessage, agentStatus, isConnected, status, isSocketReady } = useChatWebSocket(conversationId);
 
     const loadHistory = async (id) => {
         setHistoryLoading(true);
@@ -25,7 +25,7 @@ export const ChatProvider = ({ children }) => {
                     id: m.id || crypto.randomUUID(),
                     role: m.role,
                     content: m.content,
-                    timestamp: new Date(m.created_at || m.timestamp),
+                    timestamp: m.created_at || m.timestamp,
                     sources: m.sources || (m.sources_json ? JSON.parse(m.sources_json) : undefined),
                     confidence: m.confidence,
                     agentSteps: m.agent_steps || (m.agent_steps_json ? JSON.parse(m.agent_steps_json) : undefined),
@@ -128,6 +128,7 @@ export const ChatProvider = ({ children }) => {
                 sendMessage,
                 agentStatus,
                 isConnected,
+                isSocketReady,
                 status,
                 loadHistory,
                 loadConversations,

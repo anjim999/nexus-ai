@@ -47,6 +47,7 @@ const Chat = () => {
         sendMessage, 
         agentStatus, 
         isConnected, 
+        isSocketReady,
         status,
         selectConversation,
         startNewChat,
@@ -86,18 +87,35 @@ const Chat = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
+    const parseUTCDate = (dateStr) => {
+        if (!dateStr) return new Date();
+        if (dateStr instanceof Date) return dateStr;
+        let parsedStr = dateStr;
+        if (typeof dateStr === 'string' && !dateStr.endsWith('Z') && !dateStr.match(/[+-]\d{2}:?\d{2}$/)) {
+            parsedStr = dateStr.includes('T') ? dateStr + 'Z' : dateStr.replace(' ', 'T') + 'Z';
+        }
+        return new Date(parsedStr);
+    };
+
+    const formatMessageTime = (date) => {
+        if (!date) return "";
+        const d = parseUTCDate(date);
+        if (isNaN(d.getTime())) return "";
+        return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true });
+    };
+
     useEffect(() => {
         scrollToBottom();
     }, [messages, agentStatus]);
 
     const handleSend = async () => {
-        if (!input.trim() || loading || !isConnected) return;
+        if (!input.trim() || loading || !isSocketReady) return;
 
         const userMessage = {
             id: Date.now().toString(),
             role: 'user',
             content: input.trim(),
-            timestamp: new Date(),
+            timestamp: new Date().toISOString(),
         };
 
         setMessages((prev) => [...prev, userMessage]);
@@ -109,7 +127,7 @@ const Chat = () => {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
                 content: data.message,
-                timestamp: new Date(),
+                timestamp: new Date().toISOString(),
                 sources: data.sources,
                 confidence: data.confidence,
                 agentSteps: data.agent_steps,
@@ -212,7 +230,7 @@ const Chat = () => {
                         
                         {/* Conversation list */}
                         <div className="flex-1 overflow-y-auto p-3 space-y-1">
-                            {conversationsLoading ? (
+                            {conversationsLoading && conversations.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-full py-8 text-center text-xs text-muted-foreground">
                                     <Loader2 className="w-5 h-5 text-primary animate-spin mb-2" />
                                     <p>Loading history...</p>
@@ -242,12 +260,12 @@ const Chat = () => {
                                                     {conv.title || "New Conversation"}
                                                 </p>
                                                 <p className="text-[10px] text-muted-foreground/75 mt-0.5">
-                                                    {new Date(conv.updated_at).toLocaleDateString([], {
-                                                        month: 'short',
-                                                        day: 'numeric',
-                                                        hour: '2-digit',
-                                                        minute: '2-digit'
-                                                    })}
+                                                     {parseUTCDate(conv.updated_at).toLocaleDateString([], {
+                                                         month: 'short',
+                                                         day: 'numeric',
+                                                         hour: '2-digit',
+                                                         minute: '2-digit'
+                                                     })}
                                                 </p>
                                             </div>
                                             
@@ -427,6 +445,12 @@ const Chat = () => {
                                                 {message.content}
                                             </ReactMarkdown>
                                         </div>
+                                        <div className={clsx(
+                                            "mt-1 text-[10px] text-muted-foreground/60 select-none",
+                                            message.role === 'user' ? 'text-right pr-2' : 'text-left pl-2'
+                                        )}>
+                                            {formatMessageTime(message.timestamp)}
+                                        </div>
 
                                         {/* Assistant extras */}
                                         {message.role === 'assistant' && (
@@ -591,7 +615,7 @@ const Chat = () => {
                             <Button 
                                 onClick={handleSend} 
                                 loading={loading} 
-                                disabled={loading || !input.trim() || !isConnected} 
+                                disabled={loading || !input.trim() || !isSocketReady} 
                                 className="h-12 px-5"
                             >
                                 <Send className="w-4 h-4" />

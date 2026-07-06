@@ -72,20 +72,24 @@ export const useChatWebSocket = (conversationId) => {
         };
     }, [conversationId]);
 
+    const isSocketReady = status === 'open' && (socketRef.current?.url || '').includes(conversationId);
+
     const sendMessage = useCallback((message, onResponse) => {
-        if (socketRef.current?.readyState === WebSocket.OPEN) {
+        const wsUrl = socketRef.current?.url || '';
+        if (socketRef.current?.readyState === WebSocket.OPEN && wsUrl.includes(conversationId)) {
             onMessageRef.current = onResponse;
             setAgentStatus('Processing...'); // Initial status
             socketRef.current.send(JSON.stringify({ message }));
         } else {
-            console.error('WebSocket is not open');
+            console.error('WebSocket is not open or not ready for this conversation');
         }
-    }, []);
+    }, [conversationId]);
 
     return {
         status,
         agentStatus,
         sendMessage,
+        isSocketReady,
         isConnected: status === 'open'
     };
 };
