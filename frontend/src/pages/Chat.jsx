@@ -578,16 +578,22 @@ const Chat = () => {
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                     onKeyDown={handleKeyDown}
-                                    placeholder="Ask anything about your business..."
+                                    disabled={loading}
+                                    placeholder={loading ? "AI is processing your query..." : "Ask anything about your business..."}
                                     rows={1}
-                                    className="w-full bg-background border border-border rounded-xl px-4 py-3 pr-12 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none shadow-inner"
+                                    className="w-full bg-background border border-border rounded-xl px-4 py-3 pr-12 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none shadow-inner disabled:opacity-60 disabled:cursor-not-allowed"
                                     style={{ minHeight: '48px', maxHeight: '120px' }}
                                 />
-                                <button className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                                <button disabled={loading} className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
                                     <Mic className="w-5 h-5" />
                                 </button>
                             </div>
-                            <Button onClick={handleSend} loading={loading} className="h-12 px-5">
+                            <Button 
+                                onClick={handleSend} 
+                                loading={loading} 
+                                disabled={loading || !input.trim() || !isConnected} 
+                                className="h-12 px-5"
+                            >
                                 <Send className="w-4 h-4" />
                             </Button>
                         </div>

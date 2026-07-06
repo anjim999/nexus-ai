@@ -322,27 +322,6 @@ async def websocket_chat(
             data = await websocket.receive_json()
             message = data.get("message", "")
             
-            from app.database.models import Conversation, Message, MessageRole
-            from sqlalchemy import select
-            
-            # Create conversation if it doesn't exist
-            query = select(Conversation).where(Conversation.id == conversation_id)
-            result = await db.execute(query)
-            conversation = result.scalar_one_or_none()
-            if not conversation:
-                conversation = Conversation(id=conversation_id, title=message[:50])
-                db.add(conversation)
-                await db.commit()
-                
-            # Save User Message
-            user_msg = Message(
-                conversation_id=conversation_id,
-                role=MessageRole.USER,
-                content=message
-            )
-            db.add(user_msg)
-            await db.commit()
-            
             # Stream processing updates and result
             full_response_text = ""
             async for event in orchestrator.process_query_stream(
@@ -370,18 +349,6 @@ async def websocket_chat(
                     final_data = event["data"]
                     # Add remaining fields
                     final_data["message"] = full_response_text
-                    
-                    # Save AI Message
-                    ai_msg = Message(
-                        conversation_id=conversation_id,
-                        role=MessageRole.ASSISTANT,
-                        content=full_response_text,
-                        sources_json=json.dumps(final_data.get("sources")) if final_data.get("sources") else None,
-                        confidence=final_data.get("confidence"),
-                        agent_steps_json=json.dumps(final_data.get("agent_steps")) if final_data.get("agent_steps") else None
-                    )
-                    db.add(ai_msg)
-                    await db.commit()
                     
                     await websocket.send_json({
                         "type": "response",
