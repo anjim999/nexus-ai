@@ -103,8 +103,23 @@ class AgentOrchestrator:
         # Define Entry Point
         workflow.set_entry_point("analyze_query")
         
-        # Define Edges
-        workflow.add_edge("analyze_query", "research")
+        # Routing after Query Analysis
+        def route_after_analysis(state: GraphState) -> str:
+            query_analysis = state.get("context", {}).get("query_analysis", {})
+            sources = query_analysis.get("data_sources", [])
+            # If database is targeted and documents is NOT targeted, go straight to analyst
+            if "database" in sources and "documents" not in sources:
+                return "analyst"
+            return "research"
+            
+        workflow.add_conditional_edges(
+            "analyze_query",
+            route_after_analysis,
+            {
+                "research": "research",
+                "analyst": "analyst"
+            }
+        )
         
         # Routing after Research
         def route_after_research(state: GraphState) -> str:
@@ -416,6 +431,31 @@ class AgentOrchestrator:
         if not conversation_id:
             conversation_id = str(uuid.uuid4())
         
+        # Fast local greeting/FAQ bypass check
+        conversational_response = self._check_conversational_query(query)
+        if conversational_response:
+            await self._save_to_memory(
+                conversation_id,
+                query,
+                conversational_response,
+                {"sources": [], "confidence": 1.0, "agent_steps": []}
+            )
+            return {
+                "response": conversational_response,
+                "conversation_id": conversation_id,
+                "sources": None,
+                "confidence": 1.0,
+                "agent_steps": [
+                    {
+                        "agent": "orchestrator",
+                        "status": "done",
+                        "action": "Bypassed LLM pipeline for greeting/FAQ query (saved API quota)"
+                    }
+                ],
+                "charts": None,
+                "actions_taken": None
+            }
+            
         initial_state: GraphState = {
             "query": query,
             "conversation_id": conversation_id,
@@ -480,6 +520,48 @@ class AgentOrchestrator:
         if not conversation_id:
             conversation_id = str(uuid.uuid4())
         
+        # Fast local greeting/FAQ bypass check
+        conversational_response = self._check_conversational_query(query)
+        if conversational_response:
+            # Yield initial status
+            yield {"type": "status", "message": "Analyzing greeting..."}
+            await asyncio.sleep(0.1)
+            
+            # Save message exchange to memory
+            await self._save_to_memory(
+                conversation_id,
+                query,
+                conversational_response,
+                {"sources": [], "confidence": 1.0, "agent_steps": []}
+            )
+            
+            # Yield websocket events with typewriter effect
+            yield {"type": "response_start"}
+            words = conversational_response.split(" ")
+            for i, word in enumerate(words):
+                chunk = word + (" " if i < len(words) - 1 else "")
+                yield {"type": "response_chunk", "content": chunk}
+                await asyncio.sleep(0.015)  # Fast typing animation
+                
+            yield {
+                "type": "response_end",
+                "data": {
+                    "conversation_id": conversation_id,
+                    "sources": None,
+                    "confidence": 1.0,
+                    "agent_steps": [
+                        {
+                            "agent": "orchestrator",
+                            "status": "done",
+                            "action": "Bypassed LLM pipeline for greeting/FAQ query (saved API quota)"
+                        }
+                    ],
+                    "charts": None,
+                    "actions_taken": None
+                }
+            }
+            return
+            
         initial_state: GraphState = {
             "query": query,
             "conversation_id": conversation_id,
@@ -776,6 +858,52 @@ class AgentOrchestrator:
                         print(f"--- AI generated title for {conversation_id}: '{ai_title}' ---")
         except Exception as e:
             print(f"Failed to generate AI title: {e}")
+            
+    def _check_conversational_query(self, query: str) -> Optional[str]:
+        # Fast local check for common greetings and small talk to save API costs
+        clean_query = query.strip().lower().rstrip("?!.")
+        
+        greetings = {
+            "hi", "hello", "hey", "hola", "greetings", "yo", "sup", "hi there", "hello there",
+            "good morning", "good afternoon", "good evening"
+        }
+        
+        if clean_query in greetings:
+            import random
+            greetings_responses = [
+                "Hello! I'm Nexus AI, your autonomous operational intelligence agent. How can I help you analyze your business data today? "
+                "You can ask me to search customer feedback documents, query product sales trends, or schedule automated tasks.",
+                
+                "Hi there! Welcome to Nexus AI. I'm ready to help you retrieve insights and run calculations. "
+                "What business metrics or documents are we looking into today?",
+                
+                "Greetings! I'm here to assist with your data operations. Feel free to ask me questions about your uploaded documents, "
+                "sales tables, or ask me to schedule recurring alerts."
+            ]
+            return random.choice(greetings_responses)
+            
+        if "how are you" in clean_query or "how's it going" in clean_query or "how is it going" in clean_query:
+            return (
+                "I'm running at peak efficiency, thank you for asking! I am ready to help you analyze sales trends, "
+                "extract insights from documents, or automate your operational tasks. What can I do for you today?"
+            )
+            
+        intro_queries = {
+            "who are you", "what are you", "what is your name", "tell me about yourself",
+            "what can you do", "what is this", "how can you help me", "help"
+        }
+        if clean_query in intro_queries or any(x in clean_query for x in ["what can you do", "how can you help", "who are you"]):
+            return (
+                "I am **Nexus AI**, an Autonomous Business Intelligence Agent built to streamline your data operations. "
+                "Here is what I can do for you:\n\n"
+                "*   **📄 Document Intelligence**: Retrieve facts and summarize information across your uploaded knowledge bases (PDFs, CSVs, TXT, JSON).\n"
+                "*   **📊 Database Analysis**: Write and run SQL queries to calculate business metrics (like sales, average costs, churn risks).\n"
+                "*   **📑 Operational Reporting**: Generate visual trends and reports from your calculations.\n"
+                "*   **⚙️ Automation & Scheduling**: Set up automated schedules for recurring tasks (e.g., daily database backups, weekly email reports).\n\n"
+                "What would you like to explore first?"
+            )
+            
+        return None
     
     async def get_conversation_history(self, conversation_id: str) -> List[Dict]:
         # Get conversation history from database

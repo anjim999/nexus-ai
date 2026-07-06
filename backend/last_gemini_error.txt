@@ -1,41 +1,63 @@
 Traceback (most recent call last):
-  File "/home/anji/Documents/nexus-ai/backend/app/llm/gemini.py", line 63, in generate
+  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\api_core\grpc_helpers.py", line 55, in error_remapped_callable
+    return callable_(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\grpc\_channel.py", line 1159, in __call__
+    return _end_unary_response_blocking(state, call, False, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\grpc\_channel.py", line 990, in _end_unary_response_blocking
+    raise _InactiveRpcError(state)  # pytype: disable=not-instantiable
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+	status = StatusCode.RESOURCE_EXHAUSTED
+	details = "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. 
+* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash
+Please retry in 24.509610554s."
+	debug_error_string = "RESOURCE_EXHAUSTED:You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. 
+* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash
+Please retry in 24.509610554s."
+>
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Viswaeswaar reddy\OneDrive\Desktop\nexus-ai\backend\app\llm\gemini.py", line 63, in generate
     response = await asyncio.to_thread(
                ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/anji/.pyenv/versions/3.11.14/lib/python3.11/asyncio/threads.py", line 25, in to_thread
+  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\asyncio\threads.py", line 25, in to_thread
     return await loop.run_in_executor(None, func_call)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/anji/.pyenv/versions/3.11.14/lib/python3.11/concurrent/futures/thread.py", line 58, in run
+  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\concurrent\futures\thread.py", line 58, in run
     result = self.fn(*self.args, **self.kwargs)
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/google/generativeai/generative_models.py", line 248, in generate_content
+  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\generativeai\generative_models.py", line 248, in generate_content
     response = self._client.generate_content(request)
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/client.py", line 566, in generate_content
+  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\ai\generativelanguage_v1beta\services\generative_service\client.py", line 566, in generate_content
     response = rpc(
                ^^^^
-  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/google/api_core/gapic_v1/method.py", line 131, in __call__
+  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\api_core\gapic_v1\method.py", line 128, in __call__
     return wrapped_func(*args, **kwargs)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/google/api_core/retry/retry_unary.py", line 294, in retry_wrapped_func
+  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\api_core\retry\retry_unary.py", line 294, in retry_wrapped_func
     return retry_target(
            ^^^^^^^^^^^^^
-  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/google/api_core/retry/retry_unary.py", line 156, in retry_target
+  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\api_core\retry\retry_unary.py", line 156, in retry_target
     next_sleep = _retry_error_helper(
                  ^^^^^^^^^^^^^^^^^^^^
-  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/google/api_core/retry/retry_base.py", line 214, in _retry_error_helper
+  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\api_core\retry\retry_base.py", line 216, in _retry_error_helper
     raise final_exc from source_exc
-  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/google/api_core/retry/retry_unary.py", line 147, in retry_target
+  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\api_core\retry\retry_unary.py", line 147, in retry_target
     result = target()
              ^^^^^^^^
-  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/google/api_core/timeout.py", line 130, in func_with_timeout
+  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\api_core\timeout.py", line 130, in func_with_timeout
     return func(*args, **kwargs)
            ^^^^^^^^^^^^^^^^^^^^^
-  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/google/api_core/grpc_helpers.py", line 77, in error_remapped_callable
+  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\api_core\grpc_helpers.py", line 57, in error_remapped_callable
     raise exceptions.from_grpc_error(exc) from exc
 google.api_core.exceptions.ResourceExhausted: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. 
 * Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash
-Please retry in 29.419399315s. [links {
+Please retry in 24.509610554s. [links {
   description: "Learn more about Gemini API quotas"
   url: "https://ai.google.dev/gemini-api/docs/rate-limits"
 }
@@ -53,6 +75,6 @@ Please retry in 29.419399315s. [links {
   quota_value: 20
 }
 , retry_delay {
-  seconds: 29
+  seconds: 24
 }
 ]
