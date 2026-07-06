@@ -119,7 +119,7 @@ Database Schema:
 User Request: {query}
 
 Rules:
-- Use standard SQL syntax (SQLite compatible)
+- Use standard SQL syntax compatible with PostgreSQL
 - Include appropriate WHERE clauses
 - Use aggregations when asking for totals/averages
 - Limit results to 100 rows

@@ -2,6 +2,7 @@
 # Split documents into chunks for indexing
 
 import os
+import csv
 from typing import List, Dict, Any
 import asyncio
 
@@ -88,19 +89,19 @@ async def chunk_text(file_path: str) -> List[Dict[str, Any]]:
 
 async def chunk_csv(file_path: str) -> List[Dict[str, Any]]:
     # Extract and chunk CSV content
-    import pandas as pd
-    
     chunks = []
     
     try:
-        df = await asyncio.to_thread(pd.read_csv, file_path)
-        
+        with open(file_path, 'r', encoding='utf-8', newline='') as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+
         # Convert rows to text
-        for i, row in df.iterrows():
+        for i, row in enumerate(rows):
             row_text = " | ".join([
-                f"{col}: {val}" 
-                for col, val in row.items() 
-                if pd.notna(val)
+                f"{col}: {val}"
+                for col, val in row.items()
+                if val is not None and str(val).strip()
             ])
             
             if row_text.strip():
@@ -112,7 +113,8 @@ async def chunk_csv(file_path: str) -> List[Dict[str, Any]]:
                 })
         
         # Also add a summary chunk
-        summary = f"CSV with {len(df)} rows and columns: {', '.join(df.columns)}"
+        columns = list(rows[0].keys()) if rows else []
+        summary = f"CSV with {len(rows)} rows and columns: {', '.join(columns)}"
         chunks.insert(0, {
             "text": summary,
             "page": None,

@@ -211,7 +211,7 @@ const Chat = () => {
             <Card className="flex-1 flex flex-row overflow-hidden !p-0">
                 {/* Left History Sidebar */}
                 {sidebarOpen && (
-                    <div className="w-72 border-r border-border flex flex-col bg-muted/10 h-full flex-shrink-0">
+                    <div className="w-72 border-r border-border flex flex-col bg-card h-full flex-shrink-0">
                         {/* New Chat Button */}
                         <div className="p-4 border-b border-border">
                             <Button 
@@ -276,7 +276,7 @@ const Chat = () => {
                 )}
 
                 {/* Right Chat Container */}
-                <div className="flex-1 flex flex-col h-full overflow-hidden">
+                <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
                     {/* Messages */}
                     <div className="flex-1 overflow-y-auto p-6 space-y-6">
                         {messages.length === 0 ? (
@@ -316,14 +316,14 @@ const Chat = () => {
                                         className={clsx(
                                             'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0',
                                             message.role === 'user'
-                                                ? 'bg-gradient-to-br from-sky-500 to-cyan-500'
-                                                : 'bg-gradient-to-br from-violet-500 to-purple-600'
+                                                ? 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-200'
+                                                : 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                                         )}
                                     >
                                         {message.role === 'user' ? (
-                                            <User className="w-5 h-5 text-white" />
+                                            <User className="w-5 h-5" />
                                         ) : (
-                                            <Bot className="w-5 h-5 text-white" />
+                                            <Bot className="w-5 h-5" />
                                         )}
                                     </div>
 
@@ -336,10 +336,10 @@ const Chat = () => {
                                     >
                                         <div
                                             className={clsx(
-                                                'inline-block rounded-2xl px-4 py-3 text-left',
+                                                'inline-block rounded-2xl px-4 py-3 text-left border',
                                                 message.role === 'user'
-                                                    ? 'bg-gradient-to-br from-violet-600 to-purple-600 text-white'
-                                                    : 'bg-muted text-foreground'
+                                                    ? 'bg-slate-100 text-slate-900 border-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700'
+                                                    : 'bg-card text-foreground border-border'
                                             )}
                                         >
                                             <ReactMarkdown
@@ -363,10 +363,10 @@ const Chat = () => {
 
                                                 {/* Actions Taken */}
                                                 {message.actionsTaken && message.actionsTaken.length > 0 && (
-                                                    <div className="flex flex-col gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-left">
-                                                        <p className="text-xs font-semibold text-green-700 dark:text-green-400 mb-1">Actions Executed:</p>
+                                                    <div className="flex flex-col gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg text-left dark:bg-slate-900/40 dark:border-slate-700">
+                                                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Actions Executed:</p>
                                                         {message.actionsTaken.map((action, idx) => (
-                                                            <div key={idx} className="flex items-center gap-2 text-sm text-green-800 dark:text-green-300">
+                                                            <div key={idx} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                                                                 <CheckCircle2 className="w-4 h-4" />
                                                                 <span>{action}</span>
                                                             </div>
@@ -384,7 +384,7 @@ const Chat = () => {
                                                 {/* Confidence */}
                                                 {message.confidence && (
                                                     <div className="flex items-center gap-2">
-                                                        <Badge variant="purple" size="sm">
+                                                        <Badge variant="purple" size="sm" className="bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700">
                                                             {Math.round(message.confidence * 100)}% confidence
                                                         </Badge>
                                                         <button
@@ -479,7 +479,7 @@ const Chat = () => {
                     </div>
 
                     {/* Input Area */}
-                    <div className="border-t border-border p-4">
+                    <div className="border-t border-border p-4 bg-card">
                         <div className="flex items-end gap-3">
                             <div className="flex-1 relative">
                                 <textarea
@@ -489,7 +489,7 @@ const Chat = () => {
                                     onKeyDown={handleKeyDown}
                                     placeholder="Ask anything about your business..."
                                     rows={1}
-                                    className="w-full bg-muted border border-border rounded-xl px-4 py-3 pr-12 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all resize-none"
+                                    className="w-full bg-background border border-border rounded-xl px-4 py-3 pr-12 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all resize-none"
                                     style={{ minHeight: '48px', maxHeight: '120px' }}
                                 />
                                 <button className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer">

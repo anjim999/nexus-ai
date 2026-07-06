@@ -21,6 +21,11 @@ export const chatService = {
         return response.data;
     },
 
+    async renameConversation(conversationId, title) {
+        const response = await api.patch(`/chat/history/${conversationId}`, { title });
+        return response.data;
+    },
+
     async uploadDocument(file) {
         const formData = new FormData();
         formData.append('file', file);

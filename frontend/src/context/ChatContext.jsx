@@ -96,6 +96,16 @@ export const ChatProvider = ({ children }) => {
         }
     };
 
+    const renameConversation = async (id, title) => {
+        try {
+            await chatService.renameConversation(id, title);
+            setConversations(prev => prev.map(c => c.id === id ? { ...c, title: title } : c));
+        } catch (error) {
+            console.error('Failed to rename conversation:', error);
+            throw error;
+        }
+    };
+
     const sendMessage = useCallback((message, onResponse) => {
         wsSendMessage(message, async (data) => {
             onResponse(data);
@@ -124,6 +134,7 @@ export const ChatProvider = ({ children }) => {
                 selectConversation,
                 startNewChat,
                 deleteConversation,
+                renameConversation,
                 conversationsLoading,
                 historyLoading,
                 historySidebarOpen,

@@ -20,9 +20,9 @@ const navigation = [
 
 const Sidebar = () => {
     return (
-        <aside className="w-56 bg-[#07080c] flex flex-col">
+        <aside className="w-56 bg-card border-r border-border flex flex-col">
             {/* Logo */}
-            <div className="h-16 flex items-center gap-3 px-6">
+            <div className="h-16 flex items-center gap-3 px-6 border-b border-border">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
                     <Brain className="w-6 h-6 text-white" />
                 </div>
@@ -54,7 +54,7 @@ const Sidebar = () => {
             </nav>
 
             {/* Footer */}
-            <div className="p-3">
+            <div className="p-3 border-t border-border">
                 <NavLink
                     to="/settings"
                     className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"

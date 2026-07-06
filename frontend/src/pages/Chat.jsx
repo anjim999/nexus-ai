@@ -16,13 +16,15 @@ import {
     MessageSquare,
     Plus,
     Trash2,
-    History
+    History,
+    MoreVertical,
+    Pencil
 } from 'lucide-react';
 import {
     LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { Card, Button, Badge, Modal } from '../components/ui';
+import { Card, Button, Badge, Modal, Input } from '../components/ui';
 import { clsx } from 'clsx';
 import ReactMarkdown from 'react-markdown';
 import { useChat } from '../context/ChatContext';
@@ -49,6 +51,7 @@ const Chat = () => {
         selectConversation,
         startNewChat,
         deleteConversation,
+        renameConversation,
         conversationsLoading,
         historyLoading,
         historySidebarOpen: sidebarOpen
@@ -72,6 +75,10 @@ const Chat = () => {
     const [copiedId, setCopiedId] = useState(null);
     const [deleteModalConv, setDeleteModalConv] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [activeMenuConvId, setActiveMenuConvId] = useState(null);
+    const [renameModalConv, setRenameModalConv] = useState(null);
+    const [renameTitle, setRenameTitle] = useState("");
+    const [isRenaming, setIsRenaming] = useState(false);
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
 
@@ -191,9 +198,9 @@ const Chat = () => {
             <div className="flex-1 flex flex-row overflow-hidden">
                 {/* Left History Sidebar */}
                 {sidebarOpen && (
-                    <div className="w-60 flex flex-col bg-[#0c0e17] h-full flex-shrink-0">
+                    <div className="w-60 flex flex-col bg-card border-r border-border h-full flex-shrink-0">
                         {/* New Chat Button */}
-                        <div className="p-4">
+                        <div className="p-4 border-b border-border">
                             <Button 
                                 onClick={startNewChat} 
                                 className="w-full flex items-center justify-center gap-2"
@@ -243,15 +250,59 @@ const Chat = () => {
                                                     })}
                                                 </p>
                                             </div>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setDeleteModalConv(conv);
-                                                }}
-                                                className="absolute right-2 p-1.5 rounded-lg bg-background border border-border text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:border-destructive/20 transition-all duration-150 shadow-sm cursor-pointer"
-                                            >
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                            </button>
+                                            
+                                            {/* Action Menu (3 Dots) */}
+                                            <div className="absolute right-2">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setActiveMenuConvId(activeMenuConvId === conv.id ? null : conv.id);
+                                                    }}
+                                                    className={clsx(
+                                                        "p-1.5 rounded-lg bg-background border border-border text-muted-foreground hover:text-foreground shadow-sm cursor-pointer transition-all duration-150",
+                                                        activeMenuConvId === conv.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                                                    )}
+                                                >
+                                                    <MoreVertical className="w-3.5 h-3.5" />
+                                                </button>
+                                                
+                                                {activeMenuConvId === conv.id && (
+                                                    <>
+                                                        <div 
+                                                            className="fixed inset-0 z-30 cursor-default" 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setActiveMenuConvId(null);
+                                                            }} 
+                                                        />
+                                                        <div className="absolute right-0 mt-1 z-40 w-32 bg-card text-foreground border border-border rounded-lg shadow-lg py-1 animate-in fade-in slide-in-from-top-1 duration-100">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setRenameModalConv(conv);
+                                                                    setRenameTitle(conv.title || "New Conversation");
+                                                                    setActiveMenuConvId(null);
+                                                                }}
+                                                                className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-muted text-foreground transition-colors text-left font-medium cursor-pointer"
+                                                            >
+                                                                <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                                                                Rename
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setDeleteModalConv(conv);
+                                                                    setActiveMenuConvId(null);
+                                                                }}
+                                                                className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-destructive/10 text-destructive transition-colors text-left font-medium cursor-pointer"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                                Delete
+                                                            </button>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
                                     );
                                 })
@@ -261,7 +312,7 @@ const Chat = () => {
                 )}
 
                 {/* Right Chat Container */}
-                <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#141824]">
+                <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 dark:bg-background">
                     {/* Messages */}
                     <div className="flex-1 overflow-y-auto p-6 space-y-6">
                         {historyLoading ? (
@@ -304,16 +355,16 @@ const Chat = () => {
                                     {/* Avatar */}
                                     <div
                                         className={clsx(
-                                            'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0',
+                                            'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-xs border',
                                             message.role === 'user'
-                                                ? 'bg-gradient-to-br from-sky-500 to-cyan-500'
-                                                : 'bg-gradient-to-br from-violet-500 to-purple-600'
+                                                ? 'bg-slate-100 text-slate-700 border-slate-200/60 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                                                : 'bg-slate-900 text-white border-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:border-slate-200'
                                         )}
                                     >
                                         {message.role === 'user' ? (
-                                            <User className="w-5 h-5 text-white" />
+                                            <User className="w-5 h-5" />
                                         ) : (
-                                            <Bot className="w-5 h-5 text-white" />
+                                            <Bot className="w-5 h-5" />
                                         )}
                                     </div>
 
@@ -326,10 +377,10 @@ const Chat = () => {
                                     >
                                         <div
                                             className={clsx(
-                                                'inline-block rounded-2xl px-5 py-3.5 text-left shadow-sm',
+                                                'inline-block rounded-2xl px-5 py-3.5 text-left shadow-sm transition-all duration-200 border',
                                                 message.role === 'user'
-                                                    ? 'bg-gradient-to-br from-violet-600 to-purple-600 text-white shadow-md'
-                                                    : 'bg-[#1c2333] text-foreground'
+                                                    ? 'bg-slate-900 text-slate-50 border-transparent dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700'
+                                                    : 'bg-card text-foreground border-border/80 shadow-xs hover:shadow-sm'
                                             )}
                                         >
                                             <ReactMarkdown
@@ -338,9 +389,38 @@ const Chat = () => {
                                                     ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2 space-y-1 text-sm" {...props} />,
                                                     ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 space-y-1 text-sm" {...props} />,
                                                     li: ({ node, ...props }) => <li className="text-sm" {...props} />,
-                                                    strong: ({ node, ...props }) => <strong className="font-bold" {...props} />,
-                                                    a: ({ node, ...props }) => <a className="text-violet-400 dark:text-violet-300 hover:underline font-medium" target="_blank" rel="noopener noreferrer" {...props} />,
-                                                    code: ({ node, ...props }) => <code className="bg-foreground/10 px-1 py-0.5 rounded text-xs font-mono" {...props} />,
+                                                    strong: ({ node, ...props }) => (
+                                                        <strong 
+                                                            className={clsx(
+                                                                message.role === 'user' ? 'text-white font-semibold' : 'text-foreground font-semibold'
+                                                            )} 
+                                                            {...props} 
+                                                        />
+                                                    ),
+                                                    a: ({ node, ...props }) => (
+                                                        <a 
+                                                            className={clsx(
+                                                                message.role === 'user' 
+                                                                    ? 'text-violet-200 hover:text-white' 
+                                                                    : 'text-violet-600 hover:text-violet-800 dark:text-violet-400 dark:hover:text-violet-300',
+                                                                'hover:underline font-medium'
+                                                            )} 
+                                                            target="_blank" 
+                                                            rel="noopener noreferrer" 
+                                                            {...props} 
+                                                        />
+                                                    ),
+                                                    code: ({ node, ...props }) => (
+                                                        <code 
+                                                            className={clsx(
+                                                                message.role === 'user'
+                                                                    ? 'bg-white/20 text-white'
+                                                                    : 'bg-muted text-muted-foreground border border-border/50',
+                                                                'px-1.5 py-0.5 rounded text-xs font-mono'
+                                                            )} 
+                                                            {...props} 
+                                                        />
+                                                    ),
                                                     hr: ({ node, ...props }) => <hr className="my-5 border-t border-border/30" {...props} />,
                                                 }}
                                             >
@@ -354,10 +434,10 @@ const Chat = () => {
 
                                                 {/* Actions Taken */}
                                                 {message.actionsTaken && message.actionsTaken.length > 0 && (
-                                                    <div className="flex flex-col gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-left">
-                                                        <p className="text-xs font-semibold text-green-700 dark:text-green-400 mb-1">Actions Executed:</p>
+                                                    <div className="flex flex-col gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg text-left dark:bg-slate-900/40 dark:border-slate-700">
+                                                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Actions Executed:</p>
                                                         {message.actionsTaken.map((action, idx) => (
-                                                            <div key={idx} className="flex items-center gap-2 text-sm text-green-800 dark:text-green-300">
+                                                            <div key={idx} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                                                                 <CheckCircle2 className="w-4 h-4" />
                                                                 <span>{action}</span>
                                                             </div>
@@ -375,7 +455,7 @@ const Chat = () => {
                                                 {/* Confidence */}
                                                 {message.confidence && (
                                                     <div className="flex items-center gap-2">
-                                                        <Badge variant="purple" size="sm">
+                                                        <Badge variant="purple" size="sm" className="bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700">
                                                             {Math.round(message.confidence * 100)}% confidence
                                                         </Badge>
                                                         <button
@@ -476,8 +556,8 @@ const Chat = () => {
                         {/* Loading indicator */}
                         {loading && (
                             <div className="flex gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-                                    <Bot className="w-5 h-5 text-white" />
+                                <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center dark:bg-slate-100 dark:text-slate-900">
+                                    <Bot className="w-5 h-5" />
                                 </div>
                                 <div className="flex items-center gap-2 text-muted-foreground">
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -490,7 +570,7 @@ const Chat = () => {
                     </div>
 
                     {/* Input Area */}
-                    <div className="p-4 bg-[#141824]">
+                    <div className="p-4 border-t border-border bg-card">
                         <div className="flex items-end gap-3">
                             <div className="flex-1 relative">
                                 <textarea
@@ -500,7 +580,7 @@ const Chat = () => {
                                     onKeyDown={handleKeyDown}
                                     placeholder="Ask anything about your business..."
                                     rows={1}
-                                    className="w-full bg-[#1c2333] border border-transparent rounded-xl px-4 py-3 pr-12 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none shadow-inner"
+                                    className="w-full bg-background border border-border rounded-xl px-4 py-3 pr-12 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none shadow-inner"
                                     style={{ minHeight: '48px', maxHeight: '120px' }}
                                 />
                                 <button className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
@@ -514,6 +594,62 @@ const Chat = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Rename Conversation Modal */}
+            <Modal
+                isOpen={!!renameModalConv}
+                onClose={() => setRenameModalConv(null)}
+                title="Rename Conversation"
+                size="sm"
+            >
+                <div className="space-y-4">
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground">
+                            Conversation Title
+                        </label>
+                        <Input
+                            value={renameTitle}
+                            onChange={(e) => setRenameTitle(e.target.value)}
+                            placeholder="Enter chat name..."
+                            autoFocus
+                            onKeyDown={async (e) => {
+                                if (e.key === 'Enter') {
+                                    if (renameModalConv && renameTitle.trim()) {
+                                        setIsRenaming(true);
+                                        try {
+                                            await renameConversation(renameModalConv.id, renameTitle.trim());
+                                        } finally {
+                                            setIsRenaming(false);
+                                            setRenameModalConv(null);
+                                        }
+                                    }
+                                }
+                            }}
+                        />
+                    </div>
+                    <div className="flex justify-end gap-3">
+                        <Button variant="outline" onClick={() => setRenameModalConv(null)}>
+                            Cancel
+                        </Button>
+                        <Button 
+                            loading={isRenaming}
+                            onClick={async () => {
+                                if (renameModalConv && renameTitle.trim()) {
+                                    setIsRenaming(true);
+                                    try {
+                                        await renameConversation(renameModalConv.id, renameTitle.trim());
+                                    } finally {
+                                        setIsRenaming(false);
+                                        setRenameModalConv(null);
+                                    }
+                                }
+                            }}
+                        >
+                            Save
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
 
             {/* Delete Conversation Confirmation Modal */}
             <Modal

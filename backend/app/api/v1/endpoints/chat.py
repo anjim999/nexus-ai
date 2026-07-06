@@ -1,7 +1,7 @@
 # Chat Endpoints
 # Natural language chat with AI agents
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import StreamingResponse
 from typing import List, Optional
 from pydantic import BaseModel, Field
@@ -95,6 +95,11 @@ class ConversationListItem(BaseModel):
     title: Optional[str]
     created_at: datetime
     updated_at: datetime
+
+
+class ConversationUpdate(BaseModel):
+    """Conversation update model"""
+    title: str = Field(..., min_length=1, max_length=200, description="New title for the conversation")
 
 
 # Endpoints
@@ -228,6 +233,38 @@ async def delete_conversation(
     await db.commit()
     
     return {"status": "deleted", "conversation_id": conversation_id}
+
+
+@router.patch("/history/{conversation_id}")
+async def update_conversation(
+    conversation_id: str,
+    update_data: ConversationUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update a conversation (e.g. rename it).
+    """
+    from sqlalchemy import select
+    from app.database.models import Conversation
+    
+    # Get the conversation
+    query = select(Conversation).where(Conversation.id == conversation_id)
+    result = await db.execute(query)
+    conversation = result.scalar_one_or_none()
+    
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+        
+    # Update title
+    conversation.title = update_data.title
+    conversation.updated_at = datetime.utcnow()
+    await db.commit()
+    
+    return {
+        "status": "updated",
+        "conversation_id": conversation_id,
+        "title": conversation.title
+    }
 
 
 @router.get("/suggestions")

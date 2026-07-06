@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     
     # Database
-    DATABASE_URL: str = "sqlite:///./data/app.db"
+    DATABASE_URL: str = "postgresql+asyncpg://USER:PASSWORD@HOST/DATABASE?ssl=require"
     
     # Vector Store
     VECTOR_STORE_PATH: str = "./data/vectorstore"

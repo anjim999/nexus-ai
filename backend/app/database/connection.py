@@ -15,11 +15,8 @@ class Base(DeclarativeBase):
 
 
 # Engine Setup
-# Convert sqlite:/// to sqlite+aiosqlite:///
 database_url = settings.DATABASE_URL
-if database_url.startswith("sqlite:///"):
-    database_url = database_url.replace("sqlite:///", "sqlite+aiosqlite:///")
-elif database_url.startswith("postgresql://"):
+if database_url.startswith("postgresql://"):
     database_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
 
 # ... (checking database_url)
@@ -37,7 +34,6 @@ if "postgresql" in database_url:
         "pool_size": 5,
         "max_overflow": 10,
     })
-# For SQLite, we use defaults (NullPool usually) to avoid threading/asyncio conflicts
 
 engine = create_async_engine(
     database_url,

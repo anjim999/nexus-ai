@@ -252,7 +252,7 @@ async def get_dashboard_data(
     chart_result = await db.execute(chart_query)
     sales_data = chart_result.all()
     
-    # Process in python for simplicity to avoid SQL dialect issues if sqlite
+    # Process in python for simplicity to avoid SQL dialect issues across Postgres deployments
     from collections import defaultdict
     daily_sales = defaultdict(float)
     for s in sales_data:

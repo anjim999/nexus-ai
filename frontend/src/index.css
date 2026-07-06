@@ -22,6 +22,12 @@
   --radius-lg: 0.75rem;
   --radius-md: 0.5rem;
   --radius-sm: 0.25rem;
+  --scrollbar-thumb: rgba(15, 23, 42, 0.18);
+  --scrollbar-thumb-hover: rgba(15, 23, 42, 0.32);
+  --glass-background: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(148, 163, 184, 0.22);
+  --select-option-background: hsl(0 0% 100%);
+  --select-option-foreground: hsl(222.2 84% 4.9%);
 }
 
 .dark {
@@ -42,6 +48,12 @@
   --color-border: hsl(217.2 32.6% 17.5%);
   --color-input: hsl(217.2 32.6% 12.5%);
   --color-ring: hsl(263 70% 58%);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.4);
+  --glass-background: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --select-option-background: hsl(222.2 84% 6.5%);
+  --select-option-foreground: hsl(210 40% 98%);
 }
 
 @theme {
@@ -87,12 +99,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--scrollbar-thumb);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Animation Keyframes */
@@ -172,9 +184,9 @@ body {
 
 /* Glass Effect */
 .glass {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass-background);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-border);
 }
 
 /* Gradient Text */
@@ -205,6 +217,6 @@ select {
 }
 
 select option {
-  background-color: hsl(222.2 84% 6.5%);
-  color: hsl(210 40% 98%);
+  background-color: var(--select-option-background);
+  color: var(--select-option-foreground);
 }
