@@ -731,6 +731,51 @@ class AgentOrchestrator:
             confidence=state.get("confidence", 0.8),
             agent_steps=steps_data
         )
+        
+        # Check if conversation needs an AI-generated title
+        try:
+            from app.database.connection import AsyncSessionLocal
+            from app.database.models import Conversation
+            from sqlalchemy import select
+            
+            async with AsyncSessionLocal() as session:
+                stmt = select(Conversation).where(Conversation.id == conversation_id)
+                res = await session.execute(stmt)
+                conversation = res.scalar_one_or_none()
+                
+                # If conversation title is default or matches raw query, generate a clean one with AI
+                if conversation and (conversation.title is None or conversation.title == "New Conversation" or conversation.title == "New Chat" or conversation.title == query[:50]):
+                    asyncio.create_task(self._generate_and_save_title(conversation_id, query))
+        except Exception as e:
+            print(f"Error checking conversation for title generation: {e}")
+
+    async def _generate_and_save_title(self, conversation_id: str, query: str):
+        # Generate a punchy 3-5 word title using Gemini based on first query
+        try:
+            title_prompt = (
+                "Generate a short, punchy 3-to-5 word title representing the following user request. "
+                "Respond with ONLY the title text itself, without any quotes, brackets, markdown, or surrounding explanation. "
+                "Keep it brief and professional.\n\n"
+                f"User Request: {query}"
+            )
+            ai_title = await self.llm.generate(title_prompt)
+            ai_title = ai_title.strip().strip('"').strip("'").strip("`").strip()
+            
+            if ai_title and len(ai_title) < 100:
+                from app.database.connection import AsyncSessionLocal
+                from app.database.models import Conversation
+                from sqlalchemy import select
+                
+                async with AsyncSessionLocal() as session:
+                    stmt = select(Conversation).where(Conversation.id == conversation_id)
+                    res = await session.execute(stmt)
+                    conversation = res.scalar_one_or_none()
+                    if conversation:
+                        conversation.title = ai_title
+                        await session.commit()
+                        print(f"--- AI generated title for {conversation_id}: '{ai_title}' ---")
+        except Exception as e:
+            print(f"Failed to generate AI title: {e}")
     
     async def get_conversation_history(self, conversation_id: str) -> List[Dict]:
         # Get conversation history from database
