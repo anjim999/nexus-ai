@@ -72,7 +72,7 @@ class ChatRepository:
             """)
             await session.execute(insert_msg_stmt, {
                 "conversation_id": conversation_id,
-                "role": role,
+                "role": role.upper(),
                 "content": content,
                 "sources_json": json.dumps(sources) if sources else None,
                 "confidence": confidence,
@@ -98,7 +98,7 @@ class ChatRepository:
             
             return [
                 {
-                    "role": msg.role,
+                    "role": msg.role.lower() if msg.role else msg.role,
                     "content": msg.content,
                     "timestamp": msg.created_at.isoformat() if hasattr(msg.created_at, "isoformat") else str(msg.created_at)
                 }
@@ -121,7 +121,7 @@ class ChatRepository:
             for msg in messages:
                 item = {
                     "id": msg.id,
-                    "role": msg.role,
+                    "role": msg.role.lower() if msg.role else msg.role,
                     "content": msg.content,
                     "timestamp": msg.created_at.isoformat() if hasattr(msg.created_at, "isoformat") else str(msg.created_at)
                 }
