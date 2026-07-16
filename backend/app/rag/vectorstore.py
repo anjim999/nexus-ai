@@ -21,23 +21,35 @@ class VectorStore:
     def __init__(self, path: str = None):
         self.path = path or settings.VECTOR_STORE_PATH
         self.dimension = 3072  # Gemini embedding dimension
+        self.store = None
         
         # Check settings
         if not settings.PINECONE_API_KEY or not settings.PINECONE_INDEX_NAME:
+            import logging
+            logging.getLogger("app").warning(
+                "Pinecone is not configured. Please set PINECONE_API_KEY and "
+                "PINECONE_INDEX_NAME in your environment variables for RAG features."
+            )
+        else:
+            # Initialize LangChain Pinecone client wrapper
+            try:
+                self.store = PineconeVectorStore(
+                    index_name=settings.PINECONE_INDEX_NAME,
+                    embedding=_embeddings_client,
+                    pinecone_api_key=settings.PINECONE_API_KEY
+                )
+            except Exception as e:
+                import logging
+                logging.getLogger("app").warning(
+                    f"Failed to initialize LangChain Pinecone Store: {str(e)}"
+                )
+                
+    def _check_configured(self):
+        if not self.store:
             raise RAGException(
                 "Pinecone is not configured. Please set PINECONE_API_KEY and "
                 "PINECONE_INDEX_NAME in your environment variables."
             )
-            
-        # Initialize LangChain Pinecone client wrapper
-        try:
-            self.store = PineconeVectorStore(
-                index_name=settings.PINECONE_INDEX_NAME,
-                embedding=_embeddings_client,
-                pinecone_api_key=settings.PINECONE_API_KEY
-            )
-        except Exception as e:
-            raise RAGException(f"Failed to initialize LangChain Pinecone Store: {str(e)}")
             
         # Document metadata catalog (stored locally for rapid listing)
         self.metadata: Dict[str, Any] = {}
@@ -78,6 +90,7 @@ class VectorStore:
         doc_id: str,
         metadata: Dict[str, Any] = None
     ) -> int:
+        self._check_configured()
         # Add a document to the vector store
         # Returns number of chunks indexed
         from app.rag.chunker import chunk_document
@@ -134,6 +147,7 @@ class VectorStore:
         file_filter: Optional[List[str]] = None,
         threshold: float = 0.3
     ) -> List[Dict[str, Any]]:
+        self._check_configured()
         # Search for similar documents in Pinecone using LangChain
         # Returns list of matching documents with scores
         
@@ -172,6 +186,7 @@ class VectorStore:
         return results
     
     async def delete_document(self, doc_id: str) -> bool:
+        self._check_configured()
         # Delete document vectors from Pinecone using metadata filter
         if doc_id not in self.metadata:
             return False  # Document not found in our catalog
