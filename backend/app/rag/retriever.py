@@ -5,14 +5,13 @@ from typing import List, Dict, Any, Optional
 from app.rag.vectorstore import get_vector_store
 
 
+
 class Retriever:
     # High-level document retriever using LangChain
     # Features: Semantic search, Metadata filtering, Result re-ranking, Context formatting
     
     def __init__(self):
         self.vector_store = get_vector_store()
-        # Expose standard LangChain retriever instance
-        self.lc_retriever = self.vector_store.store.as_retriever()
     
     async def retrieve(
         self,

@@ -7,7 +7,7 @@ import uuid
 import asyncio
 from dataclasses import dataclass, field
 from enum import Enum
-from langgraph.graph import StateGraph, END
+from langgraph.graph import StateGraph, END, START
 
 from app.llm.gemini import GeminiClient
 from app.rag.vectorstore import VectorStore
@@ -101,7 +101,7 @@ class AgentOrchestrator:
         workflow.add_node("scheduler", self._node_scheduler_agent)
         
         # Define Entry Point
-        workflow.set_entry_point("analyze_query")
+        workflow.add_edge(START, "analyze_query")
         
         # Routing after Query Analysis
         def route_after_analysis(state: GraphState) -> str:

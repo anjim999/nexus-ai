@@ -13,7 +13,6 @@ import base64
 from app.dependencies import get_orchestrator, get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.agents.orchestrator import AgentOrchestrator
-import google.generativeai as genai
 from app.config import settings
 
 router = APIRouter()
@@ -200,7 +199,7 @@ async def get_conversation_history(
         conversation_id=conversation_id,
         messages=[
             ChatMessage(
-                role=m.role,
+                role=m.role.lower() if m.role else m.role,
                 content=m.content,
                 timestamp=m.created_at,
                 sources=json.loads(m.sources_json) if m.sources_json else None,
@@ -301,24 +300,32 @@ async def transcribe_audio(file: UploadFile = File(...)):
         if not audio_bytes:
             raise HTTPException(status_code=400, detail="Empty audio file")
             
-        # Configure genai SDK
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        model = genai.GenerativeModel(settings.LLM_MODEL)
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        from langchain_core.messages import HumanMessage
         
-        # Execute transcription call in a thread pool (since native SDK generate_content is synchronous)
-        loop = asyncio.get_running_loop()
-        response = await loop.run_in_executor(
-            None,
-            lambda: model.generate_content([
-                "Transcribe this audio recording exactly. Respond with only the transcribed text. Do not add any headings, notes, greetings, annotations, or formatting—just return the spoken text verbatim. If the audio is silent or contains no speech, respond with a blank text.",
-                {
-                    "mime_type": file.content_type or "audio/webm",
-                    "data": audio_bytes
-                }
-            ])
+        model = ChatGoogleGenerativeAI(
+            model=settings.LLM_MODEL,
+            google_api_key=settings.GEMINI_API_KEY,
+            temperature=0.0
         )
         
-        transcription = response.text.strip() if response.text else ""
+        audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
+        mime_type = file.content_type or "audio/webm"
+        
+        message = HumanMessage(
+            content=[
+                {"type": "text", "text": "Transcribe this audio recording exactly. Respond with only the transcribed text. Do not add any headings, notes, greetings, annotations, or formatting—just return the spoken text verbatim. If the audio is silent or contains no speech, respond with a blank text."},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{mime_type};base64,{audio_b64}"
+                    }
+                }
+            ]
+        )
+        
+        response = await model.ainvoke([message])
+        transcription = response.content.strip() if response.content else ""
         return {"text": transcription}
         
     except Exception as e:
@@ -353,8 +360,7 @@ manager = ConnectionManager()
 async def websocket_chat(
     websocket: WebSocket,
     conversation_id: str,
-    orchestrator: AgentOrchestrator = Depends(get_orchestrator),
-    db: AsyncSession = Depends(get_db)
+    orchestrator: AgentOrchestrator = Depends(get_orchestrator)
 ):
     # WebSocket endpoint for real-time chat and agent updates
     await manager.connect(websocket)

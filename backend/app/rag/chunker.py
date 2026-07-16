@@ -29,31 +29,28 @@ async def chunk_document(file_path: str) -> List[Dict[str, Any]]:
 
 
 async def chunk_pdf(file_path: str) -> List[Dict[str, Any]]:
-    # Extract and chunk PDF content
-    from pypdf import PdfReader
+    # Extract and chunk PDF content using LangChain PyPDFLoader
+    from langchain_community.document_loaders import PyPDFLoader
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
     
     chunks = []
-    
     try:
-        reader = await asyncio.to_thread(PdfReader, file_path)
+        loader = PyPDFLoader(file_path)
+        docs = await asyncio.to_thread(loader.load)
         
-        for page_num, page in enumerate(reader.pages, 1):
-            text = page.extract_text()
-            
-            if text and text.strip():
-                # Split page into chunks
-                page_chunks = split_text(
-                    text,
-                    chunk_size=settings.CHUNK_SIZE,
-                    overlap=settings.CHUNK_OVERLAP
-                )
-                
-                for chunk in page_chunks:
-                    chunks.append({
-                        "text": chunk,
-                        "page": page_num,
-                        "type": "pdf"
-                    })
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=settings.CHUNK_SIZE,
+            chunk_overlap=settings.CHUNK_OVERLAP,
+            separators=["\n\n", "\n", " ", ""]
+        )
+        split_docs = splitter.split_documents(docs)
+        
+        for doc in split_docs:
+            chunks.append({
+                "text": doc.page_content,
+                "page": doc.metadata.get("page", 0) + 1,  # 0-indexed to 1-indexed
+                "type": "pdf"
+            })
     except Exception as e:
         print(f"PDF extraction error: {e}")
     
@@ -61,22 +58,25 @@ async def chunk_pdf(file_path: str) -> List[Dict[str, Any]]:
 
 
 async def chunk_text(file_path: str) -> List[Dict[str, Any]]:
-    # Extract and chunk plain text
-    chunks = []
+    # Extract and chunk plain text using LangChain TextLoader
+    from langchain_community.document_loaders import TextLoader
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
     
+    chunks = []
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            text = f.read()
+        loader = TextLoader(file_path, encoding='utf-8')
+        docs = await asyncio.to_thread(loader.load)
         
-        text_chunks = split_text(
-            text,
+        splitter = RecursiveCharacterTextSplitter(
             chunk_size=settings.CHUNK_SIZE,
-            overlap=settings.CHUNK_OVERLAP
+            chunk_overlap=settings.CHUNK_OVERLAP,
+            separators=["\n\n", "\n", " ", ""]
         )
+        split_docs = splitter.split_documents(docs)
         
-        for i, chunk in enumerate(text_chunks):
+        for i, doc in enumerate(split_docs):
             chunks.append({
-                "text": chunk,
+                "text": doc.page_content,
                 "page": None,
                 "section": i + 1,
                 "type": "text"
@@ -88,39 +88,21 @@ async def chunk_text(file_path: str) -> List[Dict[str, Any]]:
 
 
 async def chunk_csv(file_path: str) -> List[Dict[str, Any]]:
-    # Extract and chunk CSV content
-    chunks = []
+    # Extract and chunk CSV using LangChain CSVLoader
+    from langchain_community.document_loaders import CSVLoader
     
+    chunks = []
     try:
-        with open(file_path, 'r', encoding='utf-8', newline='') as f:
-            reader = csv.DictReader(f)
-            rows = list(reader)
-
-        # Convert rows to text
-        for i, row in enumerate(rows):
-            row_text = " | ".join([
-                f"{col}: {val}"
-                for col, val in row.items()
-                if val is not None and str(val).strip()
-            ])
-            
-            if row_text.strip():
-                chunks.append({
-                    "text": row_text,
-                    "page": None,
-                    "row": i + 1,
-                    "type": "csv"
-                })
+        loader = CSVLoader(file_path)
+        docs = await asyncio.to_thread(loader.load)
         
-        # Also add a summary chunk
-        columns = list(rows[0].keys()) if rows else []
-        summary = f"CSV with {len(rows)} rows and columns: {', '.join(columns)}"
-        chunks.insert(0, {
-            "text": summary,
-            "page": None,
-            "type": "csv_summary"
-        })
-        
+        for i, doc in enumerate(docs):
+            chunks.append({
+                "text": doc.page_content,
+                "page": None,
+                "row": doc.metadata.get("row", i) + 1,
+                "type": "csv"
+            })
     except Exception as e:
         print(f"CSV extraction error: {e}")
     
@@ -128,27 +110,25 @@ async def chunk_csv(file_path: str) -> List[Dict[str, Any]]:
 
 
 async def chunk_json(file_path: str) -> List[Dict[str, Any]]:
-    # Extract and chunk JSON content
-    import json
+    # Extract and chunk JSON using LangChain TextLoader
+    from langchain_community.document_loaders import TextLoader
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
     
     chunks = []
-    
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        loader = TextLoader(file_path, encoding='utf-8')
+        docs = await asyncio.to_thread(loader.load)
         
-        # Convert JSON to text representation
-        json_text = json.dumps(data, indent=2)
-        
-        text_chunks = split_text(
-            json_text,
+        splitter = RecursiveCharacterTextSplitter(
             chunk_size=settings.CHUNK_SIZE,
-            overlap=settings.CHUNK_OVERLAP
+            chunk_overlap=settings.CHUNK_OVERLAP,
+            separators=["\n\n", "\n", " ", ""]
         )
+        split_docs = splitter.split_documents(docs)
         
-        for i, chunk in enumerate(text_chunks):
+        for i, doc in enumerate(split_docs):
             chunks.append({
-                "text": chunk,
+                "text": doc.page_content,
                 "page": None,
                 "section": i + 1,
                 "type": "json"
@@ -160,29 +140,25 @@ async def chunk_json(file_path: str) -> List[Dict[str, Any]]:
 
 
 async def chunk_docx(file_path: str) -> List[Dict[str, Any]]:
-    # Extract and chunk Word document
-    from docx import Document
+    # Extract and chunk Word document using LangChain Docx2txtLoader
+    from langchain_community.document_loaders import Docx2txtLoader
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
     
     chunks = []
-    
     try:
-        doc = await asyncio.to_thread(Document, file_path)
+        loader = Docx2txtLoader(file_path)
+        docs = await asyncio.to_thread(loader.load)
         
-        full_text = "\n".join([
-            para.text
-            for para in doc.paragraphs
-            if para.text.strip()
-        ])
-        
-        text_chunks = split_text(
-            full_text,
+        splitter = RecursiveCharacterTextSplitter(
             chunk_size=settings.CHUNK_SIZE,
-            overlap=settings.CHUNK_OVERLAP
+            chunk_overlap=settings.CHUNK_OVERLAP,
+            separators=["\n\n", "\n", " ", ""]
         )
+        split_docs = splitter.split_documents(docs)
         
-        for i, chunk in enumerate(text_chunks):
+        for i, doc in enumerate(split_docs):
             chunks.append({
-                "text": chunk,
+                "text": doc.page_content,
                 "page": None,
                 "section": i + 1,
                 "type": "docx"

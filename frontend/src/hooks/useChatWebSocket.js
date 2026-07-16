@@ -7,68 +7,99 @@ export const useChatWebSocket = (conversationId) => {
     const onMessageRef = useRef(null);
     const onStreamRef = useRef(null); // For future text streaming support
 
+    const reconnectTimeoutRef = useRef(null);
+
     // Initialize/Update connection when conversationId changes
     useEffect(() => {
         if (!conversationId) return;
 
-        // Close existing connection if any
-        if (socketRef.current) {
-            socketRef.current.close();
-        }
+        let isMounted = true;
 
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        const wsUrl = `${apiUrl.replace('http', 'ws')}/api/v1/chat/ws/${conversationId}`;
-        console.log('Connecting to WebSocket:', wsUrl);
-
-        const ws = new WebSocket(wsUrl);
-        socketRef.current = ws;
-        setStatus('connecting');
-
-        ws.onopen = () => {
-            console.log('WebSocket Connected');
-            setStatus('open');
-        };
-
-        ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-
-                if (data.type === 'agent_status') {
-                    setAgentStatus(`${data.agent} is ${data.status}...`);
-                } else if (data.type === 'agent_start') {
-                    setAgentStatus(`${data.agent} is ${data.status}...`);
-                } else if (data.type === 'agent_done') {
-                    setAgentStatus(`Finished: ${data.agent}`);
-                } else if (data.type === 'status') {
-                    setAgentStatus(data.message);
-                } else if (data.type === 'response_chunk') {
-                    // Optionally handle text streaming here
-                    if (onStreamRef.current) {
-                        onStreamRef.current(data.content);
-                    }
-                } else if (data.type === 'response') {
-                    setAgentStatus(null); // Clear status when done
-                    if (onMessageRef.current) {
-                        onMessageRef.current(data.data);
-                    }
+        const connect = () => {
+            // Close existing connection if any
+            if (socketRef.current) {
+                try {
+                    socketRef.current.close();
+                } catch (e) {
+                    console.error('Error closing socket:', e);
                 }
-            } catch (error) {
-                console.error('WebSocket message parse error:', error);
             }
+
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+            const cleanApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+            const wsUrl = `${cleanApiUrl.replace('http', 'ws')}/api/v1/chat/ws/${conversationId}`;
+            console.log('Connecting to WebSocket:', wsUrl);
+
+            const ws = new WebSocket(wsUrl);
+            socketRef.current = ws;
+            setStatus('connecting');
+
+            ws.onopen = () => {
+                if (!isMounted) return;
+                console.log('WebSocket Connected');
+                setStatus('open');
+            };
+
+            ws.onmessage = (event) => {
+                if (!isMounted) return;
+                try {
+                    const data = JSON.parse(event.data);
+
+                    if (data.type === 'agent_status') {
+                        setAgentStatus(`${data.agent} is ${data.status}...`);
+                    } else if (data.type === 'agent_start') {
+                        setAgentStatus(`${data.agent} is ${data.status}...`);
+                    } else if (data.type === 'agent_done') {
+                        setAgentStatus(`Finished: ${data.agent}`);
+                    } else if (data.type === 'status') {
+                        setAgentStatus(data.message);
+                    } else if (data.type === 'response_chunk') {
+                        // Optionally handle text streaming here
+                        if (onStreamRef.current) {
+                            onStreamRef.current(data.content);
+                        }
+                    } else if (data.type === 'response') {
+                        setAgentStatus(null); // Clear status when done
+                        if (onMessageRef.current) {
+                            onMessageRef.current(data.data);
+                        }
+                    }
+                } catch (error) {
+                    console.error('WebSocket message parse error:', error);
+                }
+            };
+
+            ws.onerror = (error) => {
+                if (!isMounted) return;
+                console.error('WebSocket error:', error);
+                setStatus('error');
+            };
+
+            ws.onclose = () => {
+                if (!isMounted) return;
+                console.log('WebSocket disconnected');
+                setStatus('closed');
+
+                // Attempt auto-reconnect after 3 seconds
+                reconnectTimeoutRef.current = setTimeout(() => {
+                    if (isMounted) {
+                        console.log('Attempting to reconnect WebSocket...');
+                        connect();
+                    }
+                }, 3000);
+            };
         };
 
-        ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
-            setStatus('error');
-        };
-
-        ws.onclose = () => {
-            console.log('WebSocket disconnected');
-            setStatus('closed');
-        };
+        connect();
 
         return () => {
-            ws.close();
+            isMounted = false;
+            if (socketRef.current) {
+                socketRef.current.close();
+            }
+            if (reconnectTimeoutRef.current) {
+                clearTimeout(reconnectTimeoutRef.current);
+            }
         };
     }, [conversationId]);
 

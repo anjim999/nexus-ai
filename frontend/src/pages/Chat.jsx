@@ -756,6 +756,16 @@ const Chat = () => {
                         <div ref={messagesEndRef} />
                     </div>
 
+                    {/* Connection Status Banner */}
+                    {status !== 'open' && (
+                        <div className="px-4 py-2 text-xs font-medium text-center border-t border-b border-border bg-amber-500/5 text-amber-600 dark:text-amber-400 flex items-center justify-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            {status === 'connecting' 
+                                ? 'Connecting to real-time chat server...' 
+                                : 'Disconnected from chat server. Reconnecting...'}
+                        </div>
+                    )}
+
                     {/* Input Area */}
                     <div className="p-4 border-t border-border bg-card">
                         <div className="flex items-end gap-3">

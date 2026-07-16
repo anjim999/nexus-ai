@@ -23,7 +23,7 @@ export const ChatProvider = ({ children }) => {
             if (history && history.messages) {
                 setMessages(history.messages.map((m) => ({
                     id: m.id || crypto.randomUUID(),
-                    role: m.role,
+                    role: m.role ? m.role.toLowerCase() : m.role,
                     content: m.content,
                     timestamp: m.created_at || m.timestamp,
                     sources: m.sources || (m.sources_json ? JSON.parse(m.sources_json) : undefined),

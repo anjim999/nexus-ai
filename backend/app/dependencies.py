@@ -41,7 +41,7 @@ def get_vector_store() -> VectorStore:
 # Agent Orchestrator Dependency
 _orchestrator: Optional[AgentOrchestrator] = None
 
-def get_orchestrator() -> AgentOrchestrator:
+async def get_orchestrator() -> AgentOrchestrator:
     """Get agent orchestrator instance"""
     global _orchestrator
     if _orchestrator is None:
@@ -59,7 +59,13 @@ class ServiceContainer:
     def __init__(self):
         self.llm = get_llm_client()
         self.vector_store = get_vector_store()
-        self.orchestrator = get_orchestrator()
+        global _orchestrator
+        if _orchestrator is None:
+            _orchestrator = AgentOrchestrator(
+                llm_client=self.llm,
+                vector_store=self.vector_store
+            )
+        self.orchestrator = _orchestrator
 
 
 def get_services() -> ServiceContainer:
