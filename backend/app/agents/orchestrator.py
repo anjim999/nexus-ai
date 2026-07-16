@@ -181,18 +181,23 @@ class AgentOrchestrator:
         
     async def _log_agent_step(self, query_id: str, step: Dict[str, Any]):
         from app.database.connection import AsyncSessionLocal
-        from app.database.models import AgentLog
+        from sqlalchemy import text
+        from datetime import datetime
         async with AsyncSessionLocal() as session:
-            log = AgentLog(
-                query_id=query_id,
-                agent_name=step.get("agent", "Unknown"),
-                thought=step.get("thought", ""),
-                action=step.get("action", ""),
-                observation=step.get("observation", ""),
-                confidence=step.get("confidence"),
-                duration_ms=step.get("duration_ms")
-            )
-            session.add(log)
+            stmt = text("""
+                INSERT INTO agent_logs (query_id, agent_name, thought, action, observation, confidence, duration_ms, created_at)
+                VALUES (:query_id, :agent_name, :thought, :action, :observation, :confidence, :duration_ms, :created_at)
+            """)
+            await session.execute(stmt, {
+                "query_id": query_id,
+                "agent_name": step.get("agent", "Unknown"),
+                "thought": step.get("thought", ""),
+                "action": step.get("action", ""),
+                "observation": step.get("observation", ""),
+                "confidence": step.get("confidence"),
+                "duration_ms": step.get("duration_ms"),
+                "created_at": datetime.utcnow()
+            })
             await session.commit()
     
     # LangGraph Nodes
@@ -817,17 +822,22 @@ class AgentOrchestrator:
         # Check if conversation needs an AI-generated title
         try:
             from app.database.connection import AsyncSessionLocal
-            from app.database.models import Conversation
-            from sqlalchemy import select
+            from sqlalchemy import text
             
             async with AsyncSessionLocal() as session:
-                stmt = select(Conversation).where(Conversation.id == conversation_id)
-                res = await session.execute(stmt)
-                conversation = res.scalar_one_or_none()
+                stmt = text("SELECT title FROM conversations WHERE id = :id")
+                res = await session.execute(stmt, {"id": conversation_id})
+                title = res.scalar()
                 
-                # If conversation title is default or matches raw query, generate a clean one with AI
-                if conversation and (conversation.title is None or conversation.title == "New Conversation" or conversation.title == "New Chat" or conversation.title == query[:50]):
-                    asyncio.create_task(self._generate_and_save_title(conversation_id, query))
+                title_clean = title.strip().lower() if title else ""
+                query_clean = query.strip().lower()
+                
+                # If title is default, empty, or is just a direct slice of the query, we generate a clean one
+                is_default = title_clean in ("", "new conversation", "new chat", "none")
+                is_query_slice = (title_clean == query_clean) or (query_clean.startswith(title_clean) and len(title_clean) <= 50)
+                
+                if is_default or is_query_slice:
+                    await self._generate_and_save_title(conversation_id, query)
         except Exception as e:
             print(f"Error checking conversation for title generation: {e}")
 
@@ -841,21 +851,29 @@ class AgentOrchestrator:
                 f"User Request: {query}"
             )
             ai_title = await self.llm.generate(title_prompt)
-            ai_title = ai_title.strip().strip('"').strip("'").strip("`").strip()
+            
+            # Clean wrapping quotes, spaces, and trailing punctuation
+            ai_title = ai_title.strip()
+            while ai_title and ai_title[0] in ('"', "'", "`", "*", "[", "("):
+                ai_title = ai_title[1:]
+            while ai_title and ai_title[-1] in ('"', "'", "`", "*", "]", ")", ".", "!", "?"):
+                ai_title = ai_title[:-1]
+            ai_title = ai_title.strip()
             
             if ai_title and len(ai_title) < 100:
                 from app.database.connection import AsyncSessionLocal
-                from app.database.models import Conversation
-                from sqlalchemy import select
+                from sqlalchemy import text
+                from datetime import datetime
                 
                 async with AsyncSessionLocal() as session:
-                    stmt = select(Conversation).where(Conversation.id == conversation_id)
-                    res = await session.execute(stmt)
-                    conversation = res.scalar_one_or_none()
-                    if conversation:
-                        conversation.title = ai_title
-                        await session.commit()
-                        print(f"--- AI generated title for {conversation_id}: '{ai_title}' ---")
+                    stmt = text("UPDATE conversations SET title = :title, updated_at = :updated_at WHERE id = :id")
+                    await session.execute(stmt, {
+                        "title": ai_title,
+                        "updated_at": datetime.utcnow(),
+                        "id": conversation_id
+                    })
+                    await session.commit()
+                    print(f"--- AI generated title for {conversation_id}: '{ai_title}' ---")
         except Exception as e:
             print(f"Failed to generate AI title: {e}")
             

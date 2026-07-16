@@ -18,6 +18,9 @@ google-generativeai==0.3.2
 
 # Vector Database & Embeddings
 faiss-cpu==1.13.2
+pinecone
+langchain-google-genai
+langchain-pinecone
 
 # Database
 sqlalchemy==2.0.23

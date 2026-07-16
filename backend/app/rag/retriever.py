@@ -1,18 +1,18 @@
 # Retriever
-# High-level retrieval interface
+# High-level retrieval interface using LangChain
 
 from typing import List, Dict, Any, Optional
-
 from app.rag.vectorstore import get_vector_store
-from app.rag.embeddings import get_query_embedding
 
 
 class Retriever:
-    # High-level document retriever
+    # High-level document retriever using LangChain
     # Features: Semantic search, Metadata filtering, Result re-ranking, Context formatting
     
     def __init__(self):
         self.vector_store = get_vector_store()
+        # Expose standard LangChain retriever instance
+        self.lc_retriever = self.vector_store.store.as_retriever()
     
     async def retrieve(
         self,

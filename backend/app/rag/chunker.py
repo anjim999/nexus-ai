@@ -198,37 +198,12 @@ def split_text(
     chunk_size: int = 1000,
     overlap: int = 200
 ) -> List[str]:
-    # Split text into overlapping chunks
-    if len(text) <= chunk_size:
-        return [text.strip()] if text.strip() else []
+    # Split text using LangChain's RecursiveCharacterTextSplitter
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
     
-    chunks = []
-    start = 0
-    
-    while start < len(text):
-        end = start + chunk_size
-        
-        # Try to break at a sentence or paragraph
-        if end < len(text):
-            # Look for paragraph break
-            para_break = text.rfind('\n\n', start, end)
-            if para_break > start:
-                end = para_break
-            else:
-                # Look for sentence break
-                for sep in ['. ', '! ', '? ', '\n']:
-                    sent_break = text.rfind(sep, start, end)
-                    if sent_break > start:
-                        end = sent_break + len(sep)
-                        break
-        
-        chunk = text[start:end].strip()
-        if chunk:
-            chunks.append(chunk)
-        
-        # Move start with overlap
-        start = end - overlap
-        if start >= len(text):
-            break
-    
-    return chunks
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=overlap,
+        separators=["\n\n", "\n", " ", ""]
+    )
+    return [doc.page_content for doc in splitter.create_documents([text])]

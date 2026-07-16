@@ -176,8 +176,7 @@ async def get_agent_logs(
     """
     Get recent execution logs for an agent.
     """
-    from sqlalchemy import select, desc
-    from app.database.models import AgentLog, Message, Conversation
+    from sqlalchemy import text
     
     agent_name_mapping = {
         "research_agent": "Research Agent",
@@ -190,9 +189,9 @@ async def get_agent_logs(
     mapped_name = agent_name_mapping.get(agent_id, agent_id)
     
     # Get recent logs for this agent
-    query = select(AgentLog).where(AgentLog.agent_name == mapped_name).order_by(desc(AgentLog.created_at)).limit(limit)
-    result = await db.execute(query)
-    logs = result.scalars().all()
+    query = text("SELECT query_id, agent_name, thought, action, observation, confidence, duration_ms, created_at FROM agent_logs WHERE agent_name = :agent_name ORDER BY created_at DESC LIMIT :limit")
+    result = await db.execute(query, {"agent_name": mapped_name, "limit": limit})
+    logs = result.all()
     
     # Group by query_id (conversation_id)
     execution_logs = []
@@ -204,9 +203,9 @@ async def get_agent_logs(
         seen_queries.add(log.query_id)
         
         # Fetch all logs for this query to get full picture
-        full_query = select(AgentLog).where(AgentLog.query_id == log.query_id).order_by(AgentLog.created_at)
-        full_result = await db.execute(full_query)
-        all_logs = full_result.scalars().all()
+        full_query = text("SELECT id, query_id, agent_name, thought, action, observation, confidence, duration_ms, created_at FROM agent_logs WHERE query_id = :query_id ORDER BY created_at")
+        full_result = await db.execute(full_query, {"query_id": log.query_id})
+        all_logs = full_result.all()
         
         thoughts = []
         agents_involved = set()
@@ -228,19 +227,19 @@ async def get_agent_logs(
             )
             
         # Get query and final answer from Message
-        msg_query = select(Message).where(Message.conversation_id == log.query_id).order_by(Message.created_at)
-        msg_result = await db.execute(msg_query)
-        messages = msg_result.scalars().all()
+        msg_query = text("SELECT role, content, created_at FROM messages WHERE conversation_id = :conversation_id ORDER BY created_at")
+        msg_result = await db.execute(msg_query, {"conversation_id": log.query_id})
+        messages = msg_result.all()
         
         user_query = "Unknown Query"
         final_answer = None
         started_at = log.created_at
         
         for m in messages:
-            if m.role.value == "user" and user_query == "Unknown Query":
+            if str(m.role) == "user" and user_query == "Unknown Query":
                 user_query = m.content
                 started_at = m.created_at
-            elif m.role.value == "assistant":
+            elif str(m.role) == "assistant":
                 final_answer = m.content[:200] + "..." if len(m.content) > 200 else m.content
                 
         execution_logs.append(
@@ -303,12 +302,11 @@ async def get_agent_thoughts(
     Get the chain of thoughts for a specific query.
     Shows how agents reasoned through the problem.
     """
-    from sqlalchemy import select
-    from app.database.models import AgentLog
+    from sqlalchemy import text
     
-    query = select(AgentLog).where(AgentLog.query_id == query_id).order_by(AgentLog.created_at)
-    result = await db.execute(query)
-    logs = result.scalars().all()
+    query = text("SELECT created_at, agent_name, thought, action, observation, confidence FROM agent_logs WHERE query_id = :query_id ORDER BY created_at")
+    result = await db.execute(query, {"query_id": query_id})
+    logs = result.all()
     
     return [
         AgentThought(

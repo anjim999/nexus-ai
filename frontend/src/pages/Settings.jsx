@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Card, CardContent, Button, Input } from '../components/ui';
-import { User, Lock, Bell, Globe, Palette, LogOut, Save } from 'lucide-react';
+import { User, Lock, Bell, Globe, Palette, LogOut, Save, Mic, Volume2 } from 'lucide-react';
 import { useTheme } from '../components/theme-provider';
+import useVoice from '../hooks/useVoice';
 
 const Settings = () => {
     const { setTheme, theme } = useTheme();
     const [activeTab, setActiveTab] = useState('profile');
     const [loading, setLoading] = useState(false);
+    const { isSTTSupported, isTTSSupported, voiceEnabled, setVoiceEnabled } = useVoice();
 
     // Mock User Data
     const [user, setUser] = useState({
@@ -27,6 +29,7 @@ const Settings = () => {
         { id: 'profile', label: 'Profile', icon: User },
         { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'appearance', label: 'Appearance', icon: Palette },
+        { id: 'voice', label: 'Voice', icon: Mic },
         { id: 'security', label: 'Security', icon: Lock },
     ];
 
@@ -144,6 +147,71 @@ const Settings = () => {
                                     <div className="pt-2">
                                         <Button>Update Password</Button>
                                     </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'voice' && (
+                                <div className="space-y-6">
+                                    <h3 className="text-lg font-medium text-foreground">Voice Interface</h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        Control voice input and text-to-speech output for the AI chat.
+                                    </p>
+
+                                    {/* Browser Support */}
+                                    <div className="space-y-3">
+                                        <h4 className="text-sm font-semibold text-foreground">Browser Compatibility</h4>
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex items-center justify-between py-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Mic className="w-4 h-4 text-muted-foreground" />
+                                                    <span className="text-sm text-foreground">Speech-to-Text (Voice Input)</span>
+                                                </div>
+                                                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${isSTTSupported ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                                    {isSTTSupported ? '✓ Supported' : '✕ Not Supported'}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center justify-between py-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Volume2 className="w-4 h-4 text-muted-foreground" />
+                                                    <span className="text-sm text-foreground">Text-to-Speech (Read Aloud)</span>
+                                                </div>
+                                                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${isTTSSupported ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                                    {isTTSSupported ? '✓ Supported' : '✕ Not Supported'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Auto Read-Aloud Toggle */}
+                                    <div className="space-y-3">
+                                        <h4 className="text-sm font-semibold text-foreground">Preferences</h4>
+                                        <div className="flex items-center justify-between py-3 px-4 bg-muted/50 rounded-xl border border-border">
+                                            <div>
+                                                <p className="text-sm font-medium text-foreground">Auto Read-Aloud</p>
+                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                    Automatically read AI responses aloud using text-to-speech
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={() => setVoiceEnabled(!voiceEnabled)}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none cursor-pointer ${
+                                                    voiceEnabled ? 'bg-primary' : 'bg-border'
+                                                }`}
+                                            >
+                                                <span
+                                                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                                                        voiceEnabled ? 'translate-x-6' : 'translate-x-1'
+                                                    }`}
+                                                />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {!isSTTSupported && (
+                                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-300">
+                                            <strong>Note:</strong> Your browser does not support Speech Recognition. For voice input, please use Google Chrome or Microsoft Edge.
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </CardContent>

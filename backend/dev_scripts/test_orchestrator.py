@@ -11,7 +11,7 @@ load_dotenv()
 sys.path.append(os.getcwd())
 
 from app.config import settings
-settings.LLM_MODEL = "models/gemini-3.5-flash"
+settings.LLM_MODEL = "models/gemini-2.5-flash"
 
 # Mock chat repo BEFORE importing orchestrator
 sys.modules["app.database.repositories.chat"] = MagicMock()

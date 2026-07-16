@@ -12,6 +12,8 @@ logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+# Suppress noisy function schema warnings from langchain_google_genai
+logging.getLogger("langchain_google_genai").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 

@@ -10,9 +10,13 @@ from enum import Enum
 import io
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import text
 from app.dependencies import get_db
-from app.database.models import Report, ScheduledTask
+from fastapi import HTTPException
+import os
+from app.database.connection import get_db_session
+from app.core.reports_generator import generate_pdf_report
+from app.config import settings
 
 router = APIRouter()
 
@@ -94,12 +98,69 @@ class ScheduleReportRequest(BaseModel):
     title: str
     report_type: ReportType
     frequency: ScheduleFrequency
-    recipients: List[str] = Field(..., min_items=1)
+    recipients: List[str] = Field(..., min_length=1)
     time_of_day: str = Field(default="09:00", pattern=r"^\d{2}:\d{2}$")
     sections: Optional[List[str]] = None
 
 
 # Endpoints
+async def async_generate_report_task(
+    report_id: str,
+    title: str,
+    report_type: str,
+    time_range_days: int,
+    include_ai_analysis: bool
+):
+    async with get_db_session() as db:
+        # Check existence
+        check_stmt = text("SELECT id FROM reports WHERE id = :id")
+        result = await db.execute(check_stmt, {"id": report_id})
+        report_exists = result.scalar() is not None
+        if not report_exists:
+            return
+            
+        try:
+            pdf_bytes = await generate_pdf_report(
+                title=title,
+                report_type=report_type,
+                time_range_days=time_range_days,
+                include_ai_analysis=include_ai_analysis,
+                db=db
+            )
+            
+            file_name = f"report_{report_id}.pdf"
+            file_path = os.path.join(settings.REPORTS_DIR, file_name)
+            
+            with open(file_path, "wb") as f:
+                f.write(pdf_bytes)
+                
+            update_stmt = text("""
+                UPDATE reports 
+                SET status = 'completed', file_path = :file_path, file_size = :file_size, completed_at = :completed_at 
+                WHERE id = :id
+            """)
+            await db.execute(update_stmt, {
+                "file_path": file_path,
+                "file_size": len(pdf_bytes),
+                "completed_at": datetime.utcnow(),
+                "id": report_id
+            })
+            
+        except Exception as e:
+            print(f"Background report generation failed: {e}")
+            update_stmt = text("""
+                UPDATE reports 
+                SET status = 'failed', completed_at = :completed_at 
+                WHERE id = :id
+            """)
+            await db.execute(update_stmt, {
+                "completed_at": datetime.utcnow(),
+                "id": report_id
+            })
+            
+        await db.commit()
+
+
 @router.post("/generate", response_model=ReportMetadata)
 async def generate_report(
     request: ReportGenerateRequest,
@@ -108,74 +169,70 @@ async def generate_report(
 ):
     # Generate a report on demand and save to DB
     report_id = str(uuid.uuid4())
+    created_at = datetime.utcnow()
+    expires_at = created_at + timedelta(days=7)
     
-    # Create DB Record for the Report
-    new_report = Report(
+    stmt = text("""
+        INSERT INTO reports (id, title, report_type, format, status, parameters_json, created_at, expires_at)
+        VALUES (:id, :title, :report_type, :format, :status, :parameters_json, :created_at, :expires_at)
+    """)
+    await db.execute(stmt, {
+        "id": report_id,
+        "title": request.title,
+        "report_type": request.report_type,
+        "format": request.format,
+        "status": "pending",
+        "parameters_json": None,
+        "created_at": created_at,
+        "expires_at": expires_at
+    })
+    await db.commit()
+    
+    # Queue the background generation task
+    background_tasks.add_task(
+        async_generate_report_task,
+        report_id=report_id,
+        title=request.title,
+        report_type=request.report_type,
+        time_range_days=request.time_range_days,
+        include_ai_analysis=request.include_ai_analysis
+    )
+    
+    return ReportMetadata(
         id=report_id,
         title=request.title,
         report_type=request.report_type,
         format=request.format,
-        status="completed", # Mocking immediate completion for demo
-        parameters_json=None,
-        file_size_bytes=1024 * 50, # Mock size
-        created_at=datetime.now(),
-        completed_at=datetime.now(),
-        expires_at=datetime.now() + timedelta(days=7)
-    )
-    db.add(new_report)
-    await db.commit()
-    
-    return ReportMetadata(
-        id=report_id,
-        title=new_report.title,
-        report_type=new_report.report_type,
-        format=new_report.format,
-        generated_at=new_report.created_at,
-        file_size_bytes=new_report.file_size_bytes,
+        generated_at=created_at,
+        file_size_bytes=None,
         download_url=f"/api/v1/reports/{report_id}/download",
-        expires_at=new_report.expires_at
+        expires_at=expires_at
     )
 
 
 @router.get("/{report_id}/download")
-async def download_report(report_id: str, format: ReportFormat = ReportFormat.PDF):
+async def download_report(report_id: str, db: AsyncSession = Depends(get_db)):
     # Download a generated report
-    # Generate sample PDF content
-    content = f"""
-    AI Ops Engineer - Generated Report
-    ===================================
-    Report ID: {report_id}
-    Generated: {datetime.now().isoformat()}
+    query = text("SELECT id, title, report_type, format, status, file_path, file_size AS file_size_bytes, expires_at, created_at FROM reports WHERE id = :report_id")
+    result = await db.execute(query, {"report_id": report_id})
+    report = result.fetchone()
     
-    Executive Summary
-    -----------------
-    This report provides an analysis of business performance...
-    
-    Key Metrics
-    -----------
-    - Revenue: ₹12.4L (+12.5%)
-    - Customers: 1,247 (+8.3%)
-    - Support Tickets: 47 (-15.2%)
-    
-    AI Insights
-    -----------
-    1. Marketing campaign drove 35% traffic increase
-    2. Product A outperforming by 40%
-    3. Customer churn risk identified for 3 accounts
-    
-    Recommendations
-    ---------------
-    1. Focus on customer retention for high-value accounts
-    2. Scale successful marketing strategies
-    3. Investigate Tuesday revenue anomaly
-    """.encode('utf-8')
-    
-    return StreamingResponse(
-        io.BytesIO(content),
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+        
+    if report.status == "pending":
+        raise HTTPException(status_code=400, detail="Report is still generating")
+        
+    if report.status == "failed":
+        raise HTTPException(status_code=500, detail="Report generation failed")
+        
+    if not report.file_path or not os.path.exists(report.file_path):
+        raise HTTPException(status_code=404, detail="Report file not found on server")
+        
+    return FileResponse(
+        path=report.file_path,
         media_type="application/pdf",
-        headers={
-            "Content-Disposition": f"attachment; filename=report_{report_id}.pdf"
-        }
+        filename=f"{report.title.replace(' ', '_')}.pdf"
     )
 
 
@@ -186,12 +243,13 @@ async def list_reports(
     db: AsyncSession = Depends(get_db)
 ):
     # List all generated reports from DB
-    query = select(Report).order_by(desc(Report.created_at)).limit(limit)
     if report_type:
-        query = query.where(Report.report_type == report_type)
-        
-    result = await db.execute(query)
-    reports = result.scalars().all()
+        query = text("SELECT id, title, report_type, format, status, file_path, file_size AS file_size_bytes, expires_at, created_at FROM reports WHERE report_type = :report_type ORDER BY created_at DESC LIMIT :limit")
+        result = await db.execute(query, {"report_type": report_type, "limit": limit})
+    else:
+        query = text("SELECT id, title, report_type, format, status, file_path, file_size AS file_size_bytes, expires_at, created_at FROM reports ORDER BY created_at DESC LIMIT :limit")
+        result = await db.execute(query, {"limit": limit})
+    reports = result.all()
     
     return [
         ReportMetadata(
@@ -225,67 +283,56 @@ async def schedule_report(
     if next_run < datetime.now():
         next_run += timedelta(days=1)
     
-    new_schedule = ScheduledReport(
-        id=str(uuid.uuid4()),
+    import json
+    
+    schedule_id = str(uuid.uuid4())
+    created_now = datetime.now()
+    stmt = text("""
+        INSERT INTO scheduled_tasks (id, name, task_type, frequency, next_run, recipients_json, is_active, created_at)
+        VALUES (:id, :name, :task_type, :frequency, :next_run, :recipients_json, :is_active, :created_at)
+    """)
+    await db.execute(stmt, {
+        "id": schedule_id,
+        "name": request.title,
+        "task_type": request.report_type,
+        "frequency": request.frequency,
+        "next_run": next_run,
+        "recipients_json": json.dumps(request.recipients),
+        "is_active": True,
+        "created_at": created_now
+    })
+    await db.commit()
+    
+    return ScheduledReport(
+        id=schedule_id,
         title=request.title,
         report_type=request.report_type,
         frequency=request.frequency,
         next_run=next_run,
-        recipients=request.recipients, # Requires JSON handling or relationship fix in real app, relying on simple list->JSON conversion if configured
+        recipients=request.recipients,
         is_active=True,
-        created_at=datetime.now()
-    )
-    # Note: recipients needs to be JSON serialized if using standard SQL, assuming simplified usage or Pydantic handling
-    # For now, mocking the DB save partially or assuming SQLAlchemy handles it if TypeDecorator used.
-    # To be safe, we will just return the object as if saved, since ScheduledTask in models.py has recipients_json
-    
-    # Correcting to use ScheduledTask model from models.py which we imported as DbScheduledModel (aliased above actually, wait, I imported ScheduledReport... let's fix imports) 
-    # Actually, models.py has `ScheduledTask`, `Report`.
-    # I imported `Report`, `ScheduledReport` (pydantic), and `Report as DbReportModel` etc. It's confusing.
-    # Let's fix the logic in the main replacement block.
-    # The models are: Report (DB), ScheduledTask (DB).
-    
-    from app.database.models import ScheduledTask as DbScheduledTask
-    import json
-    
-    db_schedule = DbScheduledTask(
-        id=str(uuid.uuid4()),
-        name=request.title,
-        task_type=request.report_type, # Mapping report_type to task_type
-        frequency=request.frequency,
-        next_run=next_run,
-        recipients_json=json.dumps(request.recipients),
-        is_active=True,
-        created_at=datetime.now()
-    )
-    db.add(db_schedule)
-    await db.commit()
-    
-    return ScheduledReport(
-        id=db_schedule.id,
-        title=db_schedule.name,
-        report_type=db_schedule.task_type,
-        frequency=db_schedule.frequency,
-        next_run=db_schedule.next_run,
-        recipients=json.loads(db_schedule.recipients_json),
-        is_active=db_schedule.is_active,
-        created_at=db_schedule.created_at
+        created_at=created_now
     )
 
 
 @router.get("/schedule", response_model=List[ScheduledReport])
 async def list_scheduled_reports(db: AsyncSession = Depends(get_db)):
     # List all scheduled reports from DB
-    from app.database.models import ScheduledTask as DbScheduledTask
     import json
     
-    # Filter only report generation tasks if mixed
-    query = select(DbScheduledTask).where(DbScheduledTask.task_type.in_([
-        ReportType.DAILY_SUMMARY, ReportType.WEEKLY_ANALYSIS, 
-        ReportType.MONTHLY_REPORT, ReportType.CUSTOM, "report_generation"
-    ]))
-    result = await db.execute(query)
-    tasks = result.scalars().all()
+    query = text("""
+        SELECT id, name, task_type, frequency, next_run, recipients_json, is_active, created_at 
+        FROM scheduled_tasks 
+        WHERE task_type IN (:t1, :t2, :t3, :t4, :t5)
+    """)
+    result = await db.execute(query, {
+        "t1": ReportType.DAILY_SUMMARY.value if hasattr(ReportType.DAILY_SUMMARY, "value") else ReportType.DAILY_SUMMARY,
+        "t2": ReportType.WEEKLY_ANALYSIS.value if hasattr(ReportType.WEEKLY_ANALYSIS, "value") else ReportType.WEEKLY_ANALYSIS,
+        "t3": ReportType.MONTHLY_REPORT.value if hasattr(ReportType.MONTHLY_REPORT, "value") else ReportType.MONTHLY_REPORT,
+        "t4": ReportType.CUSTOM.value if hasattr(ReportType.CUSTOM, "value") else ReportType.CUSTOM,
+        "t5": "report_generation"
+    })
+    tasks = result.all()
     
     return [
         ScheduledReport(

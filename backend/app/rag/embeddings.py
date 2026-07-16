@@ -1,62 +1,28 @@
 # Embeddings
-# Text embedding generation using Gemini
+# Text embedding generation using Gemini (LangChain version)
 
 from typing import List
-import asyncio
-import google.generativeai as genai
-
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from app.config import settings
 
-
-# Configure API
-genai.configure(api_key=settings.GEMINI_API_KEY)
-
+# Initialize LangChain Google GenAI embeddings client
+_embeddings_client = GoogleGenerativeAIEmbeddings(
+    model="models/gemini-embedding-001",
+    google_api_key=settings.GEMINI_API_KEY
+)
 
 async def get_embedding(text: str) -> List[float]:
-    # Get embedding vector for a single text
-    try:
-        result = await asyncio.to_thread(
-            genai.embed_content,
-            model="models/gemini-embedding-001",
-            content=text,
-            task_type="retrieval_document"
-        )
-        return result['embedding']
-    except Exception as e:
-        print(f"Embedding error: {e}")
-        raise e
-
+    # Get embedding vector for a single text using LangChain
+    return await _embeddings_client.aembed_query(text)
 
 async def get_embeddings(texts: List[str], batch_size: int = 100) -> List[List[float]]:
-    # Get embeddings for multiple texts
-    embeddings = []
-    
-    for i in range(0, len(texts), batch_size):
-        batch = texts[i:i + batch_size]
-        
-        # Process batch (could be parallelized further)
-        for text in batch:
-            embedding = await get_embedding(text)
-            embeddings.append(embedding)
-    
-    return embeddings
-
+    # Get embeddings for multiple texts using LangChain
+    # LangChain aembed_documents handles batching/rate-limiting under the hood
+    return await _embeddings_client.aembed_documents(texts)
 
 async def get_query_embedding(query: str) -> List[float]:
-    # Get embedding for a search query
-    # Uses retrieval_query task type for better search
-    try:
-        result = await asyncio.to_thread(
-            genai.embed_content,
-            model="models/gemini-embedding-001",
-            content=query,
-            task_type="retrieval_query"
-        )
-        return result['embedding']
-    except Exception as e:
-        print(f"Query embedding error: {e}")
-        raise e
-
+    # Get embedding for a search query using LangChain
+    return await _embeddings_client.aembed_query(query)
 
 def calculate_similarity(embedding1: List[float], embedding2: List[float]) -> float:
     # Calculate cosine similarity between two embeddings

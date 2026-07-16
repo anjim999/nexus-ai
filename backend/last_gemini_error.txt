@@ -1,63 +1,92 @@
 Traceback (most recent call last):
-  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\api_core\grpc_helpers.py", line 55, in error_remapped_callable
-    return callable_(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\grpc\_channel.py", line 1159, in __call__
-    return _end_unary_response_blocking(state, call, False, None)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\grpc\_channel.py", line 990, in _end_unary_response_blocking
-    raise _InactiveRpcError(state)  # pytype: disable=not-instantiable
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
-	status = StatusCode.RESOURCE_EXHAUSTED
-	details = "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. 
-* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash
-Please retry in 24.509610554s."
-	debug_error_string = "RESOURCE_EXHAUSTED:You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. 
-* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash
-Please retry in 24.509610554s."
->
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "C:\Users\Viswaeswaar reddy\OneDrive\Desktop\nexus-ai\backend\app\llm\gemini.py", line 63, in generate
-    response = await asyncio.to_thread(
-               ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\asyncio\threads.py", line 25, in to_thread
-    return await loop.run_in_executor(None, func_call)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\concurrent\futures\thread.py", line 58, in run
+  File "/home/anji/Documents/nexus-ai/backend/app/llm/gemini.py", line 73, in generate
+    response_text = await chain.ainvoke({"input": prompt})
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/langchain_core/runnables/base.py", line 2921, in ainvoke
+    input = await asyncio.create_task(part(), context=context)  # type: ignore
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/langchain_core/language_models/chat_models.py", line 298, in ainvoke
+    llm_result = await self.agenerate_prompt(
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/langchain_core/language_models/chat_models.py", line 787, in agenerate_prompt
+    return await self.agenerate(
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/langchain_core/language_models/chat_models.py", line 747, in agenerate
+    raise exceptions[0]
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/langchain_core/language_models/chat_models.py", line 923, in _agenerate_with_cache
+    result = await self._agenerate(
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/langchain_google_genai/chat_models.py", line 976, in _agenerate
+    return await super()._agenerate(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/langchain_core/language_models/chat_models.py", line 963, in _agenerate
+    return await run_in_executor(
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/langchain_core/runnables/config.py", line 590, in run_in_executor
+    return await asyncio.get_running_loop().run_in_executor(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/anji/.pyenv/versions/3.11.14/lib/python3.11/concurrent/futures/thread.py", line 58, in run
     result = self.fn(*self.args, **self.kwargs)
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\generativeai\generative_models.py", line 248, in generate_content
-    response = self._client.generate_content(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\ai\generativelanguage_v1beta\services\generative_service\client.py", line 566, in generate_content
-    response = rpc(
-               ^^^^
-  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\api_core\gapic_v1\method.py", line 128, in __call__
-    return wrapped_func(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\api_core\retry\retry_unary.py", line 294, in retry_wrapped_func
-    return retry_target(
-           ^^^^^^^^^^^^^
-  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\api_core\retry\retry_unary.py", line 156, in retry_target
-    next_sleep = _retry_error_helper(
-                 ^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\api_core\retry\retry_base.py", line 216, in _retry_error_helper
-    raise final_exc from source_exc
-  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\api_core\retry\retry_unary.py", line 147, in retry_target
-    result = target()
-             ^^^^^^^^
-  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\api_core\timeout.py", line 130, in func_with_timeout
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/langchain_core/runnables/config.py", line 581, in wrapper
     return func(*args, **kwargs)
            ^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Viswaeswaar reddy\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\api_core\grpc_helpers.py", line 57, in error_remapped_callable
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/langchain_google_genai/chat_models.py", line 944, in _generate
+    response: GenerateContentResponse = _chat_with_retry(
+                                        ^^^^^^^^^^^^^^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/langchain_google_genai/chat_models.py", line 194, in _chat_with_retry
+    return _chat_with_retry(**kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/tenacity/__init__.py", line 289, in wrapped_f
+    return self(f, *args, **kw)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/tenacity/__init__.py", line 379, in __call__
+    do = self.iter(retry_state=retry_state)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/tenacity/__init__.py", line 325, in iter
+    raise retry_exc.reraise()
+          ^^^^^^^^^^^^^^^^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/tenacity/__init__.py", line 158, in reraise
+    raise self.last_attempt.result()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/anji/.pyenv/versions/3.11.14/lib/python3.11/concurrent/futures/_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/anji/.pyenv/versions/3.11.14/lib/python3.11/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/tenacity/__init__.py", line 382, in __call__
+    result = fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/langchain_google_genai/chat_models.py", line 192, in _chat_with_retry
+    raise e
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/langchain_google_genai/chat_models.py", line 176, in _chat_with_retry
+    return generation_method(**kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/client.py", line 827, in generate_content
+    response = rpc(
+               ^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/google/api_core/gapic_v1/method.py", line 131, in __call__
+    return wrapped_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/google/api_core/retry/retry_unary.py", line 294, in retry_wrapped_func
+    return retry_target(
+           ^^^^^^^^^^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/google/api_core/retry/retry_unary.py", line 156, in retry_target
+    next_sleep = _retry_error_helper(
+                 ^^^^^^^^^^^^^^^^^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/google/api_core/retry/retry_base.py", line 214, in _retry_error_helper
+    raise final_exc from source_exc
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/google/api_core/retry/retry_unary.py", line 147, in retry_target
+    result = target()
+             ^^^^^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/google/api_core/timeout.py", line 130, in func_with_timeout
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/anji/Documents/nexus-ai/backend/venv/lib/python3.11/site-packages/google/api_core/grpc_helpers.py", line 77, in error_remapped_callable
     raise exceptions.from_grpc_error(exc) from exc
 google.api_core.exceptions.ResourceExhausted: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. 
 * Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash
-Please retry in 24.509610554s. [links {
+Please retry in 52.781116803s. [links {
   description: "Learn more about Gemini API quotas"
   url: "https://ai.google.dev/gemini-api/docs/rate-limits"
 }
@@ -75,6 +104,6 @@ Please retry in 24.509610554s. [links {
   quota_value: 20
 }
 , retry_delay {
-  seconds: 24
+  seconds: 52
 }
 ]

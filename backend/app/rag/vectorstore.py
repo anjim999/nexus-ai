@@ -1,77 +1,75 @@
 # Vector Store
-# FAISS-based vector database for RAG (Retrieval-Augmented Generation)
+# Pinecone-based cloud vector database for RAG (Retrieval-Augmented Generation) using LangChain
 
 import os
 import json
-import pickle
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import asyncio
 
-import faiss
-import numpy as np
+from langchain_pinecone import PineconeVectorStore
+from app.rag.embeddings import _embeddings_client
 
 from app.config import settings
 from app.core.exceptions import RAGException
 
 
 class VectorStore:
-    # FAISS Vector Store for semantic search
-    # Features: Document indexing, Semantic search, Metadata filtering, Persistence
+    # LangChain Pinecone Vector Store wrapper
+    # Features: Document indexing, Semantic search, Metadata filtering, Cloud Persistence
     
     def __init__(self, path: str = None):
         self.path = path or settings.VECTOR_STORE_PATH
         self.dimension = 3072  # Gemini embedding dimension
         
-        # Initialize FAISS index
-        self.index: Optional[faiss.IndexFlatIP] = None
-        
-        # Document storage
-        self.documents: List[Dict[str, Any]] = []
+        # Check settings
+        if not settings.PINECONE_API_KEY or not settings.PINECONE_INDEX_NAME:
+            raise RAGException(
+                "Pinecone is not configured. Please set PINECONE_API_KEY and "
+                "PINECONE_INDEX_NAME in your environment variables."
+            )
+            
+        # Initialize LangChain Pinecone client wrapper
+        try:
+            self.store = PineconeVectorStore(
+                index_name=settings.PINECONE_INDEX_NAME,
+                embedding=_embeddings_client,
+                pinecone_api_key=settings.PINECONE_API_KEY
+            )
+        except Exception as e:
+            raise RAGException(f"Failed to initialize LangChain Pinecone Store: {str(e)}")
+            
+        # Document metadata catalog (stored locally for rapid listing)
         self.metadata: Dict[str, Any] = {}
         
-        # Load existing index if present
+        # Load existing metadata catalog if present
         self._load()
     
-    # Index Management - Create, Load, and Save FAISS indices
-    def _create_index(self):
-    # Create a new FAISS index
-        # Using Inner Product (cosine similarity after normalization)
-        self.index = faiss.IndexFlatIP(self.dimension)
-    
     def _load(self):
-    # Load index from disk
-        index_path = os.path.join(self.path, "faiss.index")
-        docs_path = os.path.join(self.path, "documents.pkl")
+        # Load local document metadata catalog from disk
         meta_path = os.path.join(self.path, "metadata.json")
         
-        if os.path.exists(index_path) and os.path.exists(docs_path):
+        if os.path.exists(meta_path):
             try:
-                self.index = faiss.read_index(index_path)
-                with open(docs_path, 'rb') as f:
-                    self.documents = pickle.load(f)
-                if os.path.exists(meta_path):
-                    with open(meta_path, 'r') as f:
-                        self.metadata = json.load(f)
+                with open(meta_path, 'r') as f:
+                    self.metadata = json.load(f)
             except Exception as e:
-                print(f"Error loading index: {e}")
-                self._create_index()
+                print(f"Error loading metadata: {e}")
+                self.metadata = {}
         else:
-            self._create_index()
+            self.metadata = {}
     
     def _save(self):
-    # Save index to disk
+        # Save local document metadata catalog to disk
         os.makedirs(self.path, exist_ok=True)
-        
-        index_path = os.path.join(self.path, "faiss.index")
-        docs_path = os.path.join(self.path, "documents.pkl")
         meta_path = os.path.join(self.path, "metadata.json")
         
-        faiss.write_index(self.index, index_path)
-        with open(docs_path, 'wb') as f:
-            pickle.dump(self.documents, f)
-        with open(meta_path, 'w') as f:
-            json.dump(self.metadata, f)
+        try:
+            with open(meta_path, 'w') as f:
+                json.dump(self.metadata, f)
+        except Exception as e:
+            print(f"Error saving metadata: {e}")
+            raise RAGException(f"Failed to persist metadata catalog: {str(e)}")
     
     # Document Operations - Add, Search, and Delete documents from the store
     async def add_document(
@@ -83,49 +81,48 @@ class VectorStore:
         # Add a document to the vector store
         # Returns number of chunks indexed
         from app.rag.chunker import chunk_document
-        from app.rag.embeddings import get_embeddings
+        from langchain_core.documents import Document
         
-        # Chunk the document
+        # Chunk the document using chunk_document (which uses RecursiveCharacterTextSplitter)
         chunks = await chunk_document(file_path)
         
         if not chunks:
             raise RAGException(f"No content extracted from {file_path}")
-        
-        # Get embeddings for all chunks
-        texts = [c["text"] for c in chunks]
-        embeddings = await get_embeddings(texts)
-        
-        # Normalize for cosine similarity
-        embeddings_np = np.array(embeddings).astype('float32')
-        faiss.normalize_L2(embeddings_np)
-        
-        # Add to index
-        start_idx = len(self.documents)
-        self.index.add(embeddings_np)
-        
-        # Store documents with metadata
+            
+        # Convert text chunks to LangChain Document objects
+        documents_to_add = []
         for i, chunk in enumerate(chunks):
-            doc_entry = {
-                "id": f"{doc_id}_{i}",
-                "doc_id": doc_id,
-                "text": chunk["text"],
-                "page": chunk.get("page"),
-                "source": os.path.basename(file_path),
-                "metadata": metadata or {},
-                "indexed_at": datetime.now().isoformat()
-            }
-            self.documents.append(doc_entry)
+            doc = Document(
+                page_content=chunk["text"],
+                metadata={
+                    "page": chunk.get("page") or 0,
+                    "source": os.path.basename(file_path),
+                    "doc_id": doc_id,
+                    "chunk_index": i
+                }
+            )
+            documents_to_add.append(doc)
+            
+        try:
+            # Add documents using LangChain PineconeVectorStore
+            # It handles embeddings generation and upsertion in chunks
+            await asyncio.to_thread(
+                self.store.add_documents,
+                documents_to_add
+            )
+        except Exception as e:
+            raise RAGException(f"Failed to add documents using LangChain: {str(e)}")
         
-        # Update metadata
+        # Update local catalog metadata
         self.metadata[doc_id] = {
             "filename": os.path.basename(file_path),
             "file_type": os.path.splitext(file_path)[1],
             "chunk_count": len(chunks),
             "indexed_at": datetime.now().isoformat(),
-            **( metadata or {})
+            **(metadata or {})
         }
         
-        # Persist
+        # Persist catalog changes locally
         self._save()
         
         return len(chunks)
@@ -137,93 +134,64 @@ class VectorStore:
         file_filter: Optional[List[str]] = None,
         threshold: float = 0.3
     ) -> List[Dict[str, Any]]:
-        # Search for similar documents
+        # Search for similar documents in Pinecone using LangChain
         # Returns list of matching documents with scores
-        from app.rag.embeddings import get_query_embedding
         
-        if self.index is None or self.index.ntotal == 0:
-            return []
-        
-        # Get query embedding
-        query_embedding = await get_query_embedding(query)
-        query_np = np.array([query_embedding]).astype('float32')
-        faiss.normalize_L2(query_np)
-        
-        # Search
-        # Get more results for filtering
-        search_k = min(top_k * 3, self.index.ntotal)
-        scores, indices = self.index.search(query_np, search_k)
-        
-        results = []
-        for score, idx in zip(scores[0], indices[0]):
-            if idx < 0 or idx >= len(self.documents):
-                continue
+        # Construct filter query if list of filenames is provided
+        pinecone_filter = None
+        if file_filter:
+            pinecone_filter = {"source": {"$in": file_filter}}
             
+        try:
+            # Query Pinecone using LangChain's similarity search with score
+            # similarity_search_with_relevance_scores returns tuples of (Document, score)
+            matches = await asyncio.to_thread(
+                self.store.similarity_search_with_relevance_scores,
+                query,
+                k=top_k,
+                filter=pinecone_filter
+            )
+        except Exception as e:
+            raise RAGException(f"LangChain Pinecone search failed: {str(e)}")
+            
+        results = []
+        for doc, score in matches:
+            # Filter out poor matches using threshold
             if score < threshold:
                 continue
-            
-            doc = self.documents[idx]
-            
-            # Apply file filter
-            if file_filter:
-                if doc["source"] not in file_filter:
-                    continue
-            
+                
             results.append({
-                "content": doc["text"],
-                "source": doc["source"],
-                "page": doc.get("page"),
-                "doc_id": doc["doc_id"],
+                "content": doc.page_content,
+                "source": doc.metadata.get("source", ""),
+                "page": doc.metadata.get("page"),
+                "doc_id": doc.metadata.get("doc_id", ""),
                 "score": float(score),
-                "metadata": doc.get("metadata", {})
+                "metadata": doc.metadata
             })
             
-            if len(results) >= top_k:
-                break
-        
         return results
     
     async def delete_document(self, doc_id: str) -> bool:
-        # Delete a document from the store
-        # Note: FAISS doesn't support deletion, so we rebuild the index
-        # Find documents to keep
-        docs_to_keep = []
-        indices_to_keep = []
-        
-        for i, doc in enumerate(self.documents):
-            if doc["doc_id"] != doc_id:
-                docs_to_keep.append(doc)
-                indices_to_keep.append(i)
-        
-        if len(docs_to_keep) == len(self.documents):
-            return False  # Document not found
-        
-        # Rebuild index with remaining documents
-        if indices_to_keep:
-            from app.rag.embeddings import get_embeddings
+        # Delete document vectors from Pinecone using metadata filter
+        if doc_id not in self.metadata:
+            return False  # Document not found in our catalog
             
-            texts = [d["text"] for d in docs_to_keep]
-            embeddings = await get_embeddings(texts)
+        try:
+            # LangChain PineconeVectorStore uses raw client to delete by filter
+            await asyncio.to_thread(
+                self.store.delete,
+                filter={"doc_id": doc_id}
+            )
+        except Exception as e:
+            raise RAGException(f"Failed to delete vectors using LangChain: {str(e)}")
             
-            embeddings_np = np.array(embeddings).astype('float32')
-            faiss.normalize_L2(embeddings_np)
-            
-            self._create_index()
-            self.index.add(embeddings_np)
-        else:
-            self._create_index()
-        
-        self.documents = docs_to_keep
-        
-        # Remove from metadata
-        if doc_id in self.metadata:
-            del self.metadata[doc_id]
-        
+        # Remove from local metadata catalog
+        del self.metadata[doc_id]
         self._save()
         return True
     
     async def list_documents(self) -> List[Dict[str, Any]]:
-    # List all indexed documents
+        # List all indexed documents from the metadata catalog
         docs = []
         for doc_id, meta in self.metadata.items():
             docs.append({
@@ -238,7 +206,7 @@ class VectorStore:
         return docs
     
     async def get_document(self, doc_id: str) -> Optional[Dict[str, Any]]:
-    # Get document metadata
+        # Get document metadata from the catalog
         if doc_id in self.metadata:
             meta = self.metadata[doc_id]
             return {
@@ -253,18 +221,21 @@ class VectorStore:
         return None
     
     async def reindex_all(self) -> int:
-    # Reindex all documents
-        # Would need to re-read all documents from disk
-        # For now, return current count
         return len(self.metadata)
     
-    # Statistics and reporting for the vector store status
     def get_stats(self) -> Dict[str, Any]:
-    # Get vector store statistics
+        # Get vector store statistics from local metadata and Pinecone index
+        try:
+            # We access the raw index object inside PineconeVectorStore
+            stats = self.store._index.describe_index_stats()
+            total_chunks = stats.total_vector_count
+        except Exception:
+            total_chunks = 0
+            
         return {
             "total_documents": len(self.metadata),
-            "total_chunks": len(self.documents),
-            "index_size": self.index.ntotal if self.index else 0,
+            "total_chunks": total_chunks,
+            "index_size": total_chunks,
             "dimension": self.dimension
         }
 
@@ -274,14 +245,14 @@ _vector_store: Optional[VectorStore] = None
 
 
 async def init_vector_store():
-# Initialize the global vector store
+    # Initialize the global vector store
     global _vector_store
     os.makedirs(settings.VECTOR_STORE_PATH, exist_ok=True)
     _vector_store = VectorStore()
 
 
 def get_vector_store() -> VectorStore:
-# Get the global vector store instance
+    # Get the global vector store instance
     global _vector_store
     if _vector_store is None:
         _vector_store = VectorStore()

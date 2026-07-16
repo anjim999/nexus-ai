@@ -7,10 +7,9 @@ from pydantic import BaseModel, Field
 from datetime import datetime, timedelta
 from enum import Enum
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, text
 
 from app.dependencies import get_db
-from app.database.models import Sale, Customer, SupportTicket, Insight, ScheduledTask
 
 router = APIRouter()
 
@@ -126,42 +125,42 @@ async def get_dashboard_data(
     # 2. Fetch Metrics
     
     # Revenue
-    revenue_query = select(func.sum(Sale.amount)).where(Sale.date >= start_date)
-    revenue_result = await db.execute(revenue_query)
+    revenue_query = text("SELECT SUM(amount) FROM sales WHERE date >= :start_date")
+    revenue_result = await db.execute(revenue_query, {"start_date": start_date})
     current_revenue = revenue_result.scalar() or 0.0
 
-    prev_revenue_query = select(func.sum(Sale.amount)).where(Sale.date >= prev_start_date, Sale.date < start_date)
-    prev_revenue_result = await db.execute(prev_revenue_query)
+    prev_revenue_query = text("SELECT SUM(amount) FROM sales WHERE date >= :prev_start_date AND date < :start_date")
+    prev_revenue_result = await db.execute(prev_revenue_query, {"prev_start_date": prev_start_date, "start_date": start_date})
     prev_revenue = prev_revenue_result.scalar() or 0.0
     
     revenue_change = ((current_revenue - prev_revenue) / prev_revenue * 100) if prev_revenue > 0 else 0.0
     revenue_trend = TrendDirection.UP if revenue_change > 0 else (TrendDirection.DOWN if revenue_change < 0 else TrendDirection.STABLE)
 
     # Customers
-    total_customers_query = select(func.count(Customer.id))
+    total_customers_query = text("SELECT COUNT(id) FROM customers")
     total_customers_result = await db.execute(total_customers_query)
     total_customers = total_customers_result.scalar() or 0
 
-    new_cust_query = select(func.count(Customer.id)).where(Customer.created_at >= start_date)
-    new_cust_result = await db.execute(new_cust_query)
+    new_cust_query = text("SELECT COUNT(id) FROM customers WHERE created_at >= :start_date")
+    new_cust_result = await db.execute(new_cust_query, {"start_date": start_date})
     new_customers = new_cust_result.scalar() or 0
     
-    prev_cust_query = select(func.count(Customer.id)).where(Customer.created_at >= prev_start_date, Customer.created_at < start_date)
-    prev_cust_result = await db.execute(prev_cust_query)
+    prev_cust_query = text("SELECT COUNT(id) FROM customers WHERE created_at >= :prev_start_date AND created_at < :start_date")
+    prev_cust_result = await db.execute(prev_cust_query, {"prev_start_date": prev_start_date, "start_date": start_date})
     prev_new_customers = prev_cust_result.scalar() or 0
 
     cust_change = ((new_customers - prev_new_customers) / prev_new_customers * 100) if prev_new_customers > 0 else 0.0
     cust_trend = TrendDirection.UP if cust_change > 0 else (TrendDirection.DOWN if cust_change < 0 else TrendDirection.STABLE)
 
     # Open Tickets
-    ticket_query = select(func.count(SupportTicket.id)).where(SupportTicket.status != 'resolved')
+    ticket_query = text("SELECT COUNT(id) FROM support_tickets WHERE status != 'resolved'")
     ticket_result = await db.execute(ticket_query)
     open_tickets = ticket_result.scalar() or 0
     
     # Tickets change logic could be added effectively similar to above
     
     # Pending Tasks (Scheduled Tasks)
-    task_query = select(func.count(ScheduledTask.id)).where(ScheduledTask.is_active == True)
+    task_query = text("SELECT COUNT(id) FROM scheduled_tasks WHERE is_active = true")
     task_result = await db.execute(task_query)
     active_tasks = task_result.scalar() or 0
 
@@ -206,9 +205,9 @@ async def get_dashboard_data(
     ]
 
     # 4. Fetch Insights
-    insight_query = select(Insight).order_by(desc(Insight.priority), desc(Insight.created_at)).limit(5)
+    insight_query = text("SELECT id, title, summary, details, confidence, created_at, category, priority FROM insights ORDER BY priority DESC, created_at DESC LIMIT 5")
     insight_result = await db.execute(insight_query)
-    db_insights = insight_result.scalars().all()
+    db_insights = insight_result.all()
     
     insights_list = [
         AIInsight(
@@ -225,9 +224,9 @@ async def get_dashboard_data(
     ]
 
     # 5. Fetch Alerts (High Priority Open Tickets)
-    alert_query = select(SupportTicket).where(SupportTicket.priority.in_(['high', 'critical']), SupportTicket.status == 'open').limit(5)
+    alert_query = text("SELECT id, subject, status, priority, created_at FROM support_tickets WHERE priority IN ('high', 'critical') AND status = 'open' LIMIT 5")
     alert_result = await db.execute(alert_query)
-    high_pri_tickets = alert_result.scalars().all()
+    high_pri_tickets = alert_result.all()
 
     alerts_list = [
         AlertItem(
@@ -244,12 +243,8 @@ async def get_dashboard_data(
     # Aggregating by day in SQL for the last 7 days
     chart_start = now - timedelta(days=7)
     # Note: date_trunc is Postgres specific. Assuming Postgres.
-    chart_query = select(
-        Sale.date, 
-        Sale.amount
-    ).where(Sale.date >= chart_start).order_by(Sale.date)
-    
-    chart_result = await db.execute(chart_query)
+    chart_query = text("SELECT date, amount FROM sales WHERE date >= :chart_start ORDER BY date")
+    chart_result = await db.execute(chart_query, {"chart_start": chart_start})
     sales_data = chart_result.all()
     
     # Process in python for simplicity to avoid SQL dialect issues across Postgres deployments

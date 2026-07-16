@@ -17,15 +17,16 @@ async def inspect_store():
     print("Inspecting Vector Store...")
     print(f"Path: {settings.VECTOR_STORE_PATH}")
     
+    print(f"Pinecone API Key Length: {len(settings.PINECONE_API_KEY)}")
+    print(f"Pinecone API Key Prefix: {settings.PINECONE_API_KEY[:15]}...")
+    print(f"Pinecone Index Name Config: {settings.PINECONE_INDEX_NAME}")
+    
     vs = VectorStore()
     
-    print(f"Total Documents in Metadata: {len(vs.metadata)}")
-    print(f"Total Chunks in Memory: {len(vs.documents)}")
-    
-    if vs.index:
-        print(f"FAISS Index Size: {vs.index.ntotal}")
-    else:
-        print("FAISS Index is None")
+    stats = vs.get_stats()
+    print(f"Total Documents in Metadata: {stats['total_documents']}")
+    print(f"Total Chunks in Index: {stats['total_chunks']}")
+    print(f"Pinecone Index: {settings.PINECONE_INDEX_NAME}")
         
     print("\n--- Listing Documents ---")
     for doc_id, meta in vs.metadata.items():

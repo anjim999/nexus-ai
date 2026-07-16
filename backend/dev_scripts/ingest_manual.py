@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 # Add backend directory to python path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.rag.vectorstore import get_vector_store, init_vector_store
 from app.config import settings

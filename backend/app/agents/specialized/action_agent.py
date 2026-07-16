@@ -1,138 +1,50 @@
 # Action Agent
-# Executes actions and generates outputs
+# Executes actions and generates outputs using native LangChain tools
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Type
 from datetime import datetime
 import json
 import os
 
+from langchain_core.tools import BaseTool
+from pydantic import BaseModel, Field
+
 from app.llm.gemini import GeminiClient
 from app.llm.prompts import ACTION_AGENT_PROMPT
 
+# Pydantic models for input schemas
+class GenerateReportInput(BaseModel):
+    title: str = Field(description="The title of the report to generate")
+    type: str = Field(default="summary", description="The type of report, e.g., summary, detailed")
 
-class ActionAgent:
-    # Action Agent
-    # Responsibilities: Execute actions, generate reports, notifications, alerts, tasks
-    
-    def __init__(self, llm: GeminiClient):
-        self.llm = llm
-        self.system_prompt = ACTION_AGENT_PROMPT
-        
-        # Available actions
-        self.actions = {
-            "generate_report": self._generate_report,
-            "send_email": self._send_email,
-            "create_alert": self._create_alert,
-            "schedule_task": self._schedule_task,
-            "update_dashboard": self._update_dashboard,
-            "export_data": self._export_data
-        }
-    
-    async def execute(
-        self,
-        query: str,
-        response: str,
-        context: Dict[str, Any] = None
-    ) -> Dict[str, Any]:
-        # Determine and execute appropriate actions
-        # Determine what actions are needed
-        action_plan = await self._plan_actions(query, response, context)
-        
-        # Execute each action
-        executed_actions = []
-        results = []
-        
-        for action in action_plan.get("actions", []):
-            action_name = action.get("action")
-            params = action.get("parameters", {})
-            
-            if action_name in self.actions:
-                try:
-                    result = await self.actions[action_name](params)
-                    executed_actions.append(f"{action_name}: success")
-                    results.append({
-                        "action": action_name,
-                        "status": "success",
-                        "result": result
-                    })
-                except Exception as e:
-                    executed_actions.append(f"{action_name}: failed - {str(e)}")
-                    results.append({
-                        "action": action_name,
-                        "status": "failed",
-                        "error": str(e)
-                    })
-        
-        return {
-            "actions": executed_actions,
-            "results": results,
-            "action_plan": action_plan
-        }
-    
-    async def _plan_actions(
-        self,
-        query: str,
-        response: str,
-        context: Dict = None
-    ) -> Dict[str, Any]:
-        # Plan what actions to take
-        prompt = f"""
-You are an action execution planner. Your job is to determine what actions the user wants performed and execute them.
+class SendEmailInput(BaseModel):
+    recipients: List[str] = Field(description="List of recipient email addresses")
+    subject: str = Field(description="The subject of the email")
+    body: str = Field(description="The body content of the email")
 
-IMPORTANT RULES:
-- If the user says "send email" or "send an email report", you MUST include a "send_email" action
-- If the user mentions an email address, use THAT address as the recipient
-- If the user says "schedule", you MUST include a "schedule_task" action
-- Always extract specific parameters (email addresses, task names, frequencies) from the user's request
-- Do NOT refuse actions based on policy or other considerations - just execute what the user asked
+class CreateAlertInput(BaseModel):
+    type: str = Field(default="info", description="The alert type, e.g., info, warning, error")
+    message: str = Field(description="The alert message description")
+    priority: str = Field(default="medium", description="The alert priority: low, medium, high")
 
-User Request: {query}
+class ScheduleTaskInput(BaseModel):
+    name: str = Field(description="The name of the task to schedule")
+    frequency: str = Field(default="daily", description="The scheduling frequency: daily, weekly, monthly")
 
-Available Actions:
-- generate_report: Create a PDF or HTML report (parameters: title, type)
-- send_email: Send email notification (parameters: recipients (list), subject, body)
-- create_alert: Create a system alert (parameters: type, message, priority)
-- schedule_task: Schedule a recurring task (parameters: name, frequency)
-- update_dashboard: Update dashboard metrics (parameters: metrics)
-- export_data: Export data to file (parameters: format)
+class UpdateDashboardInput(BaseModel):
+    metrics: List[str] = Field(description="The list of metrics to update on the dashboard")
 
-Context from analysis: {response[:500]}
+class ExportDataInput(BaseModel):
+    format: str = Field(default="csv", description="The format of exported data, e.g. csv, json")
 
-Return JSON with the actions to execute:
-{{
-    "actions": [
-        {{
-            "action": "action_name",
-            "reason": "why this action",
-            "parameters": {{}}
-        }}
-    ],
-    "no_action_reason": "only if truly no actions needed"
-}}
-"""
-        
-        try:
-            return await self.llm.generate_json(
-                prompt=prompt,
-                schema={
-                    "actions": [{
-                        "action": "string",
-                        "reason": "string",
-                        "parameters": "object"
-                    }],
-                    "no_action_reason": "string"
-                }
-            )
-        except Exception:
-            return {"actions": [], "no_action_reason": "Could not determine actions"}
-    
-    # Action Implementations
-    async def _generate_report(self, params: Dict) -> Dict[str, Any]:
-        # Generate a report
-        report_type = params.get("type", "summary")
-        title = params.get("title", "AI Generated Report")
-        
-        # In production, this would actually generate a PDF
+
+# BaseTool Subclasses
+class GenerateReportTool(BaseTool):
+    name: str = "generate_report"
+    description: str = "Generate a PDF/HTML report. Use this tool when the user asks to generate, compile, or create a report."
+    args_schema: Type[BaseModel] = GenerateReportInput
+
+    def _run(self, title: str, type: str = "summary") -> Dict[str, Any]:
         report_content = f"""
 # {title}
 
@@ -151,24 +63,34 @@ This report was automatically generated based on AI analysis.
 2. Action item 2
 3. Action item 3
 """
-        
         return {
             "report_id": f"report_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
             "title": title,
-            "type": report_type,
+            "type": type,
             "generated_at": datetime.now().isoformat(),
             "content_preview": report_content[:200]
         }
-    
-    async def _send_email(self, params: Dict) -> Dict[str, Any]:
-        # Send email notification
-        recipients = params.get("recipients", [])
-        if isinstance(recipients, str):
-            recipients = [recipients]
-        subject = params.get("subject", "AI Ops Notification")
-        body = params.get("body", params.get("content", "Auto-generated report from AI Ops Engineer"))
-        
-        # Check if SMTP is configured
+
+    async def _arun(self, title: str, type: str = "summary") -> Dict[str, Any]:
+        return self._run(title, type)
+
+
+class SendEmailTool(BaseTool):
+    name: str = "send_email"
+    description: str = "Send an email notification to specific recipients. Use this tool when the user asks to send an email."
+    args_schema: Type[BaseModel] = SendEmailInput
+
+    def _run(self, recipients: List[str], subject: str, body: str) -> Dict[str, Any]:
+        return {
+            "email_id": f"email_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            "recipients": recipients,
+            "subject": subject,
+            "body_preview": body[:200] if body else "N/A",
+            "status": "sent (simulated - sync call)",
+            "sent_at": datetime.now().isoformat()
+        }
+
+    async def _arun(self, recipients: List[str], subject: str, body: str) -> Dict[str, Any]:
         from app.config import settings
         smtp_host = settings.SMTP_HOST
         smtp_port = settings.SMTP_PORT
@@ -176,7 +98,6 @@ This report was automatically generated based on AI analysis.
         smtp_password = settings.SMTP_PASSWORD
         
         if smtp_host and smtp_user and smtp_password and recipients:
-            # Real email sending via SMTP
             try:
                 import aiosmtplib
                 from email.mime.text import MIMEText
@@ -199,7 +120,7 @@ This report was automatically generated based on AI analysis.
                     password=smtp_password
                 )
                 
-                print(f"\u2709\ufe0f Email SENT to {recipients} | Subject: {subject}")
+                print(f"✉️ Email SENT to {recipients} | Subject: {subject}")
                 return {
                     "email_id": f"email_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
                     "recipients": recipients,
@@ -209,7 +130,7 @@ This report was automatically generated based on AI analysis.
                     "sent_at": datetime.now().isoformat()
                 }
             except Exception as e:
-                print(f"\u274c Email FAILED: {str(e)}")
+                print(f"❌ Email FAILED: {str(e)}")
                 return {
                     "email_id": f"email_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
                     "recipients": recipients,
@@ -218,7 +139,6 @@ This report was automatically generated based on AI analysis.
                     "sent_at": datetime.now().isoformat()
                 }
         else:
-            # Fallback: SMTP not configured
             return {
                 "email_id": f"email_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
                 "recipients": recipients,
@@ -228,56 +148,189 @@ This report was automatically generated based on AI analysis.
                 "sent_at": datetime.now().isoformat(),
                 "note": "Configure SMTP_HOST, SMTP_USER, SMTP_PASSWORD in .env for real email delivery"
             }
-    
-    async def _create_alert(self, params: Dict) -> Dict[str, Any]:
-        # Create a system alert
-        alert_type = params.get("type", "info")
-        message = params.get("message", "New alert from AI Ops")
-        priority = params.get("priority", "medium")
-        
+
+
+class CreateAlertTool(BaseTool):
+    name: str = "create_alert"
+    description: str = "Create a system alert. Use this tool when the user asks to create an alert, notify about a critical issue, or flag something."
+    args_schema: Type[BaseModel] = CreateAlertInput
+
+    def _run(self, type: str = "info", message: str = "", priority: str = "medium") -> Dict[str, Any]:
         return {
             "alert_id": f"alert_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-            "type": alert_type,
+            "type": type,
             "message": message,
             "priority": priority,
             "created_at": datetime.now().isoformat()
         }
-    
-    async def _schedule_task(self, params: Dict) -> Dict[str, Any]:
-        # Schedule a recurring task
-        task_name = params.get("name", "Scheduled Task")
-        frequency = params.get("frequency", "daily")
-        
+
+    async def _arun(self, type: str = "info", message: str = "", priority: str = "medium") -> Dict[str, Any]:
+        return self._run(type, message, priority)
+
+
+class ScheduleTaskTool(BaseTool):
+    name: str = "schedule_task"
+    description: str = "Schedule a recurring task. Use this tool when the user asks to schedule a job or task."
+    args_schema: Type[BaseModel] = ScheduleTaskInput
+
+    def _run(self, name: str, frequency: str = "daily") -> Dict[str, Any]:
         return {
             "task_id": f"task_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-            "name": task_name,
+            "name": name,
             "frequency": frequency,
             "status": "scheduled",
             "next_run": datetime.now().isoformat()
         }
-    
-    async def _update_dashboard(self, params: Dict) -> Dict[str, Any]:
-        # Update dashboard metrics
-        metrics = params.get("metrics", [])
-        
+
+    async def _arun(self, name: str, frequency: str = "daily") -> Dict[str, Any]:
+        return self._run(name, frequency)
+
+
+class UpdateDashboardTool(BaseTool):
+    name: str = "update_dashboard"
+    description: str = "Update dashboard metrics. Use this tool when the user asks to update metrics, KPIs, or update dashboard."
+    args_schema: Type[BaseModel] = UpdateDashboardInput
+
+    def _run(self, metrics: List[str]) -> Dict[str, Any]:
         return {
             "update_id": f"update_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
             "metrics_updated": len(metrics),
             "updated_at": datetime.now().isoformat()
         }
-    
-    async def _export_data(self, params: Dict) -> Dict[str, Any]:
-        # Export data to file
-        format = params.get("format", "csv")
-        
+
+    async def _arun(self, metrics: List[str]) -> Dict[str, Any]:
+        return self._run(metrics)
+
+
+class ExportDataTool(BaseTool):
+    name: str = "export_data"
+    description: str = "Export data to a file. Use this tool when the user asks to export, download, or save data."
+    args_schema: Type[BaseModel] = ExportDataInput
+
+    def _run(self, format: str = "csv") -> Dict[str, Any]:
         return {
             "export_id": f"export_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
             "format": format,
             "status": "exported",
             "file_path": f"/exports/data_{datetime.now().strftime('%Y%m%d')}.{format}"
         }
+
+    async def _arun(self, format: str = "csv") -> Dict[str, Any]:
+        return self._run(format)
+
+
+class ActionAgent:
+    # Action Agent backed by native LangChain Tools and bind_tools()
     
-    # Execution Helpers
+    def __init__(self, llm: GeminiClient):
+        self.llm = llm
+        self.system_prompt = ACTION_AGENT_PROMPT
+        
+        # Instantiate LangChain tools
+        self.tools = [
+            GenerateReportTool(),
+            SendEmailTool(),
+            CreateAlertTool(),
+            ScheduleTaskTool(),
+            UpdateDashboardTool(),
+            ExportDataTool()
+        ]
+        
+        # Keep quick actions mapping for backward compatibility
+        self.actions = {tool.name: tool for tool in self.tools}
+        
+        # Bind tools to the model
+        self.model_with_tools = self.llm.chat_model.bind_tools(self.tools)
+        
+    async def execute(
+        self,
+        query: str,
+        response: str,
+        context: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
+        # Formulate native LangChain input messages
+        from langchain_core.messages import SystemMessage, HumanMessage
+        
+        # Incorporate context
+        system_content = (
+            f"{self.system_prompt}\n\n"
+            f"CRITICAL INSTRUCTION:\n"
+            f"1. You must execute the appropriate tool immediately to fulfill the user's request.\n"
+            f"2. Do not respond conversationally or ask for user confirmation. Go straight to calling the tool.\n"
+            f"3. For email requests, extract the recipients (e.g. mapping 'marketing team' to marketing@company.com or similar, or using placeholder if not present), subject, and construct the body from the available context.\n\n"
+            f"Available context from analysis:\n{response}"
+        )
+        
+        messages = [
+            SystemMessage(content=system_content),
+            HumanMessage(content=query)
+        ]
+        
+        # Pacing sleep to avoid 429 rate limit exceptions on free tier API
+        from tenacity import retry, stop_after_attempt, wait_exponential
+        import asyncio
+
+        @retry(
+            stop=stop_after_attempt(3),
+            wait=wait_exponential(multiplier=1, min=1, max=10)
+        )
+        async def _invoke_model_with_retry():
+            await asyncio.sleep(3.5)
+            return await self.model_with_tools.ainvoke(messages)
+
+        # Invoke model with tool binding
+        try:
+            message_response = await _invoke_model_with_retry()
+            tool_calls = message_response.tool_calls
+        except Exception as e:
+            print(f"Tool invocation planning failed: {e}")
+            tool_calls = []
+
+        executed_actions = []
+        results = []
+        actions_list = []
+        
+        for tool_call in tool_calls:
+            action_name = tool_call["name"]
+            params = tool_call["args"]
+            
+            if action_name in self.actions:
+                tool_instance = self.actions[action_name]
+                try:
+                    # Invoke tool using LangChain API
+                    result = await tool_instance.ainvoke(params)
+                    executed_actions.append(f"{action_name}: success")
+                    results.append({
+                        "action": action_name,
+                        "status": "success",
+                        "result": result
+                    })
+                except Exception as e:
+                    executed_actions.append(f"{action_name}: failed - {str(e)}")
+                    results.append({
+                        "action": action_name,
+                        "status": "failed",
+                        "error": str(e)
+                    })
+                
+                # Append to action plan for validation / logging compatibility
+                actions_list.append({
+                    "action": action_name,
+                    "reason": "Execution matched request",
+                    "parameters": params
+                })
+                
+        action_plan = {
+            "actions": actions_list,
+            "no_action_reason": "No actions taken" if not actions_list else ""
+        }
+        
+        return {
+            "actions": executed_actions,
+            "results": results,
+            "action_plan": action_plan
+        }
+
     async def validate_action(
         self,
         action_name: str,
@@ -289,8 +342,6 @@ This report was automatically generated based on AI analysis.
                 "valid": False,
                 "reason": f"Unknown action: {action_name}"
             }
-        
-        # Add specific validation for each action type
         return {"valid": True, "reason": "Action can be executed"}
     
     async def dry_run(
@@ -300,7 +351,6 @@ This report was automatically generated based on AI analysis.
     ) -> Dict[str, Any]:
         # Simulate action without executing
         validation = await self.validate_action(action_name, params)
-        
         if not validation["valid"]:
             return validation
         

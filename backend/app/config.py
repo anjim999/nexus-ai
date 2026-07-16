@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     
     # API Keys
     GEMINI_API_KEY: str = ""
+    PINECONE_API_KEY: str = ""
+    PINECONE_INDEX_NAME: str = ""
     
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://USER:PASSWORD@HOST/DATABASE?ssl=require"
@@ -48,6 +50,7 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024  # 10MB
     ALLOWED_EXTENSIONS: List[str] = [".pdf", ".txt", ".csv", ".json", ".docx"]
     UPLOAD_DIR: str = "./data/uploads"
+    REPORTS_DIR: str = "./data/reports"
     
     # LLM Settings
     LLM_MODEL: str = "models/gemini-2.5-flash"
@@ -109,6 +112,7 @@ def ensure_directories():
     directories = [
         settings.VECTOR_STORE_PATH,
         settings.UPLOAD_DIR,
+        settings.REPORTS_DIR,
         "./data",
         "./logs"
     ]

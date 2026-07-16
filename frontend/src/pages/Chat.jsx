@@ -2,6 +2,12 @@ import { useState, useRef, useEffect } from 'react';
 import {
     Send,
     Mic,
+    MicOff,
+    Volume2,
+    VolumeX,
+    Play,
+    Pause,
+    Square,
     Sparkles,
     User,
     Bot,
@@ -18,7 +24,9 @@ import {
     Trash2,
     History,
     MoreVertical,
-    Pencil
+    Pencil,
+    Maximize2,
+    Minimize2
 } from 'lucide-react';
 import {
     LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -28,6 +36,8 @@ import { Card, Button, Badge, Modal, Input } from '../components/ui';
 import { clsx } from 'clsx';
 import ReactMarkdown from 'react-markdown';
 import { useChat } from '../context/ChatContext';
+import useVoice from '../hooks/useVoice';
+import VoiceOverlay from '../components/chat/VoiceOverlay';
 
 const suggestedQuestions = [
     "What are the top 5 most expensive products?",
@@ -38,15 +48,15 @@ const suggestedQuestions = [
 ];
 
 const Chat = () => {
-    const { 
-        messages, setMessages, 
-        input, setInput, 
-        loading, setLoading, 
-        conversationId, 
+    const {
+        messages, setMessages,
+        input, setInput,
+        loading, setLoading,
+        conversationId,
         conversations,
-        sendMessage, 
-        agentStatus, 
-        isConnected, 
+        sendMessage,
+        agentStatus,
+        isConnected,
         isSocketReady,
         status,
         selectConversation,
@@ -82,6 +92,99 @@ const Chat = () => {
     const [isRenaming, setIsRenaming] = useState(false);
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
+
+    // Voice Interface
+    const {
+        isListening,
+        isInitializing,
+        isTranscribing,
+        audioStream,
+        transcript,
+        suffix,
+        startListening,
+        stopListening,
+        toggleListening,
+        isSTTSupported,
+        isSpeaking,
+        isPaused,
+        speak,
+        pauseSpeaking,
+        resumeSpeaking,
+        stopSpeaking,
+        isTTSSupported,
+        voiceEnabled,
+        resetTranscript,
+        updateVoiceText,
+    } = useVoice();
+    const [speakingMessageId, setSpeakingMessageId] = useState(null);
+    const [cursorIndex, setCursorIndex] = useState(null);
+    const [isInputExpanded, setIsInputExpanded] = useState(false);
+    const [showExpandButton, setShowExpandButton] = useState(false);
+
+    // Auto-grow textarea height as user types or speaks
+    useEffect(() => {
+        const textarea = inputRef.current;
+        if (textarea) {
+            textarea.style.height = 'auto';
+            const maxHeight = isInputExpanded ? 350 : 120;
+            const newHeight = Math.min(textarea.scrollHeight, maxHeight);
+            textarea.style.height = `${newHeight}px`;
+
+            // Only show scrollbar when the text exceeds maxHeight limits
+            if (textarea.scrollHeight > maxHeight) {
+                textarea.style.overflowY = 'auto';
+            } else {
+                textarea.style.overflowY = 'hidden';
+            }
+
+            // Check if text has reached at least 4 lines (approx >= 100px scrollHeight)
+            const isLong = textarea.scrollHeight >= 100;
+            setShowExpandButton(isLong);
+
+            // Collapse if the content goes back below 4 lines
+            if (!isLong && isInputExpanded) {
+                setIsInputExpanded(false);
+            }
+        }
+    }, [input, isInputExpanded]);
+
+    // Keep cursor position aligned after text insertion
+    useEffect(() => {
+        if (cursorIndex !== null && inputRef.current) {
+            inputRef.current.setSelectionRange(cursorIndex, cursorIndex);
+            setCursorIndex(null);
+        }
+    }, [cursorIndex]);
+
+    const handleStartVoice = () => {
+        const textarea = inputRef.current;
+        if (textarea) {
+            const start = textarea.selectionStart || 0;
+            const val = textarea.value || '';
+            const before = val.slice(0, start);
+            const after = val.slice(start);
+            startListening(before, after);
+        } else {
+            startListening(input, '');
+        }
+    };
+
+    // Sync voice transcript into input field
+    useEffect(() => {
+        if (transcript) {
+            setInput(transcript + suffix);
+            const newCursor = transcript.length;
+            setCursorIndex(newCursor);
+        }
+    }, [transcript, suffix]);
+
+
+    // Clear speakingMessageId when TTS finishes
+    useEffect(() => {
+        if (!isSpeaking && !isPaused) {
+            setSpeakingMessageId(null);
+        }
+    }, [isSpeaking, isPaused]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -120,6 +223,7 @@ const Chat = () => {
 
         setMessages((prev) => [...prev, userMessage]);
         setInput('');
+        resetTranscript();
         setLoading(true);
 
         sendMessage(userMessage.content, (data) => {
@@ -219,15 +323,15 @@ const Chat = () => {
                     <div className="w-60 flex flex-col bg-card border-r border-border h-full flex-shrink-0">
                         {/* New Chat Button */}
                         <div className="p-4 border-b border-border">
-                            <Button 
-                                onClick={startNewChat} 
+                            <Button
+                                onClick={startNewChat}
                                 className="w-full flex items-center justify-center gap-2"
                                 icon={<Plus className="w-4 h-4" />}
                             >
                                 New Chat
                             </Button>
                         </div>
-                        
+
                         {/* Conversation list */}
                         <div className="flex-1 overflow-y-auto p-3 space-y-1">
                             {conversationsLoading && conversations.length === 0 ? (
@@ -260,15 +364,15 @@ const Chat = () => {
                                                     {conv.title || "New Conversation"}
                                                 </p>
                                                 <p className="text-[10px] text-muted-foreground/75 mt-0.5">
-                                                     {parseUTCDate(conv.updated_at).toLocaleDateString([], {
-                                                         month: 'short',
-                                                         day: 'numeric',
-                                                         hour: '2-digit',
-                                                         minute: '2-digit'
-                                                     })}
+                                                    {parseUTCDate(conv.updated_at).toLocaleDateString([], {
+                                                        month: 'short',
+                                                        day: 'numeric',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    })}
                                                 </p>
                                             </div>
-                                            
+
                                             {/* Action Menu (3 Dots) */}
                                             <div className="absolute right-2">
                                                 <button
@@ -283,15 +387,15 @@ const Chat = () => {
                                                 >
                                                     <MoreVertical className="w-3.5 h-3.5" />
                                                 </button>
-                                                
+
                                                 {activeMenuConvId === conv.id && (
                                                     <>
-                                                        <div 
-                                                            className="fixed inset-0 z-30 cursor-default" 
+                                                        <div
+                                                            className="fixed inset-0 z-30 cursor-default"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 setActiveMenuConvId(null);
-                                                            }} 
+                                                            }}
                                                         />
                                                         <div className="absolute right-0 mt-1 z-40 w-32 bg-card text-foreground border border-border rounded-lg shadow-lg py-1 animate-in fade-in slide-in-from-top-1 duration-100">
                                                             <button
@@ -408,35 +512,35 @@ const Chat = () => {
                                                     ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 space-y-1 text-sm" {...props} />,
                                                     li: ({ node, ...props }) => <li className="text-sm" {...props} />,
                                                     strong: ({ node, ...props }) => (
-                                                        <strong 
+                                                        <strong
                                                             className={clsx(
                                                                 message.role === 'user' ? 'text-white font-semibold' : 'text-foreground font-semibold'
-                                                            )} 
-                                                            {...props} 
+                                                            )}
+                                                            {...props}
                                                         />
                                                     ),
                                                     a: ({ node, ...props }) => (
-                                                        <a 
+                                                        <a
                                                             className={clsx(
-                                                                message.role === 'user' 
-                                                                    ? 'text-violet-200 hover:text-white' 
+                                                                message.role === 'user'
+                                                                    ? 'text-violet-200 hover:text-white'
                                                                     : 'text-violet-600 hover:text-violet-800 dark:text-violet-400 dark:hover:text-violet-300',
                                                                 'hover:underline font-medium'
-                                                            )} 
-                                                            target="_blank" 
-                                                            rel="noopener noreferrer" 
-                                                            {...props} 
+                                                            )}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            {...props}
                                                         />
                                                     ),
                                                     code: ({ node, ...props }) => (
-                                                        <code 
+                                                        <code
                                                             className={clsx(
                                                                 message.role === 'user'
                                                                     ? 'bg-white/20 text-white'
                                                                     : 'bg-muted text-muted-foreground border border-border/50',
                                                                 'px-1.5 py-0.5 rounded text-xs font-mono'
-                                                            )} 
-                                                            {...props} 
+                                                            )}
+                                                            {...props}
                                                         />
                                                     ),
                                                     hr: ({ node, ...props }) => <hr className="my-5 border-t border-border/30" {...props} />,
@@ -476,24 +580,83 @@ const Chat = () => {
                                                     </div>
                                                 ))}
 
-                                                {/* Confidence */}
-                                                {message.confidence && (
-                                                    <div className="flex items-center gap-2">
-                                                        <Badge variant="purple" size="sm" className="bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700">
+                                                {/* Message Controls (Copy & TTS) */}
+                                                <div className="flex items-center gap-2 mt-2">
+                                                    {message.confidence && (
+                                                        <Badge variant="purple" size="sm" className="bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 mr-2">
                                                             {Math.round(message.confidence * 100)}% confidence
                                                         </Badge>
-                                                        <button
-                                                            onClick={() => copyToClipboard(message.content, message.id)}
-                                                            className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                                                        >
-                                                            {copiedId === message.id ? (
-                                                                <Check className="w-4 h-4 text-emerald-400" />
-                                                            ) : (
-                                                                <Copy className="w-4 h-4" />
+                                                    )}
+
+                                                    {/* Copy button */}
+                                                    <button
+                                                        onClick={() => copyToClipboard(message.content, message.id)}
+                                                        className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                                        title="Copy text"
+                                                    >
+                                                        {copiedId === message.id ? (
+                                                            <Check className="w-4 h-4 text-emerald-400" />
+                                                        ) : (
+                                                            <Copy className="w-4 h-4" />
+                                                        )}
+                                                    </button>
+
+                                                    {/* TTS Controls */}
+                                                    {isTTSSupported && (
+                                                        <div className="flex items-center gap-1">
+                                                            {/* Play / Pause / Resume Button */}
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (speakingMessageId === message.id) {
+                                                                        if (isSpeaking && !isPaused) {
+                                                                            pauseSpeaking();
+                                                                        } else if (isPaused) {
+                                                                            resumeSpeaking();
+                                                                        } else {
+                                                                            speak(message.content);
+                                                                        }
+                                                                    } else {
+                                                                        setSpeakingMessageId(message.id);
+                                                                        speak(message.content);
+                                                                    }
+                                                                }}
+                                                                className={clsx(
+                                                                    "p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer",
+                                                                    speakingMessageId === message.id && isSpeaking && !isPaused && "voice-speaking"
+                                                                )}
+                                                                title={
+                                                                    speakingMessageId === message.id && isSpeaking && !isPaused
+                                                                        ? "Pause"
+                                                                        : speakingMessageId === message.id && isPaused
+                                                                            ? "Resume"
+                                                                            : "Read aloud"
+                                                                }
+                                                            >
+                                                                {speakingMessageId === message.id && isSpeaking && !isPaused ? (
+                                                                    <Pause className="w-4.5 h-4.5" />
+                                                                ) : speakingMessageId === message.id && isPaused ? (
+                                                                    <Play className="w-4.5 h-4.5" />
+                                                                ) : (
+                                                                    <Volume2 className="w-4.5 h-4.5" />
+                                                                )}
+                                                            </button>
+
+                                                            {/* Stop Button (only shown when this message is active) */}
+                                                            {speakingMessageId === message.id && (isSpeaking || isPaused) && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        stopSpeaking();
+                                                                        setSpeakingMessageId(null);
+                                                                    }}
+                                                                    className="p-1.5 rounded-lg hover:bg-muted text-red-500 hover:text-red-600 transition-colors cursor-pointer"
+                                                                    title="Stop"
+                                                                >
+                                                                    <Square className="w-4 h-4" />
+                                                                </button>
                                                             )}
-                                                        </button>
-                                                    </div>
-                                                )}
+                                                        </div>
+                                                    )}
+                                                </div>
 
                                                 {/* Sources */}
                                                 {message.sources && message.sources.length > 0 && (
@@ -596,30 +759,80 @@ const Chat = () => {
                     {/* Input Area */}
                     <div className="p-4 border-t border-border bg-card">
                         <div className="flex items-end gap-3">
-                            <div className="flex-1 relative">
-                                <textarea
-                                    ref={inputRef}
-                                    value={input}
-                                    onChange={(e) => setInput(e.target.value)}
-                                    onKeyDown={handleKeyDown}
-                                    disabled={loading}
-                                    placeholder={loading ? "AI is processing your query..." : "Ask anything about your business..."}
-                                    rows={1}
-                                    className="w-full bg-background border border-border rounded-xl px-4 py-3 pr-12 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none shadow-inner disabled:opacity-60 disabled:cursor-not-allowed"
-                                    style={{ minHeight: '48px', maxHeight: '120px' }}
+                            {(isListening || isInitializing || isTranscribing) ? (
+                                <VoiceOverlay
+                                    audioStream={audioStream}
+                                    isInitializing={isInitializing}
+                                    isTranscribing={isTranscribing}
+                                    onCancel={() => {
+                                        stopListening();
+                                        resetTranscript();
+                                    }}
+                                    onConfirm={() => {
+                                        stopListening();
+                                    }}
                                 />
-                                <button disabled={loading} className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
-                                    <Mic className="w-5 h-5" />
-                                </button>
-                            </div>
-                            <Button 
-                                onClick={handleSend} 
-                                loading={loading} 
-                                disabled={loading || !input.trim() || !isSocketReady} 
-                                className="h-12 px-5"
-                            >
-                                <Send className="w-4 h-4" />
-                            </Button>
+                            ) : (
+                                <>
+                                    <div className="flex-1 relative">
+                                        <textarea
+                                            ref={inputRef}
+                                            value={input}
+                                            onChange={(e) => setInput(e.target.value)}
+                                            onKeyDown={handleKeyDown}
+                                            disabled={loading}
+                                            placeholder={loading ? "AI is processing your query..." : "Ask anything about your business..."}
+                                            rows={1}
+                                            className="w-full bg-background border border-border rounded-xl px-4 pr-12 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none shadow-inner disabled:opacity-60 disabled:cursor-not-allowed"
+                                            style={{ minHeight: '48px', maxHeight: isInputExpanded ? '350px' : '120px' }}
+                                        />
+                                        
+                                        {/* Expand/Collapse Toggle Button - Top Right Corner */}
+                                        {showExpandButton && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    setIsInputExpanded(!isInputExpanded);
+                                                }}
+                                                className="absolute right-2 top-2 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200 cursor-pointer z-10"
+                                                title={isInputExpanded ? "Collapse input area" : "Expand input area"}
+                                            >
+                                                {isInputExpanded ? (
+                                                    <Minimize2 className="w-3.5 h-3.5" />
+                                                ) : (
+                                                    <Maximize2 className="w-3.5 h-3.5" />
+                                                )}
+                                            </button>
+                                        )}
+
+                                        {/* Start Voice Typing Button - Bottom Right Corner */}
+                                        {isSTTSupported && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    handleStartVoice();
+                                                }}
+                                                disabled={loading}
+                                                className="absolute right-3 bottom-2 p-1.5 rounded-full text-muted-foreground hover:text-foreground transition-all duration-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed z-10"
+                                                title="Start voice typing"
+                                            >
+                                                <Mic className="w-5 h-5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <Button
+                                        onClick={() => {
+                                            handleSend();
+                                            setIsInputExpanded(false);
+                                        }}
+                                        loading={loading}
+                                        disabled={loading || !input.trim() || !isSocketReady}
+                                        className="h-12 px-5"
+                                    >
+                                        <Send className="w-4 h-4" />
+                                    </Button>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -661,7 +874,7 @@ const Chat = () => {
                         <Button variant="outline" onClick={() => setRenameModalConv(null)}>
                             Cancel
                         </Button>
-                        <Button 
+                        <Button
                             loading={isRenaming}
                             onClick={async () => {
                                 if (renameModalConv && renameTitle.trim()) {
@@ -696,8 +909,8 @@ const Chat = () => {
                         <Button variant="outline" onClick={() => setDeleteModalConv(null)}>
                             Cancel
                         </Button>
-                        <Button 
-                            variant="destructive" 
+                        <Button
+                            variant="destructive"
                             loading={isDeleting}
                             onClick={async () => {
                                 if (deleteModalConv) {

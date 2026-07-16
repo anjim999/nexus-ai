@@ -1,17 +1,20 @@
 # Chat Endpoints
 # Natural language chat with AI agents
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException, File, UploadFile
 from fastapi.responses import StreamingResponse
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
 import json
 import asyncio
+import base64
 
 from app.dependencies import get_orchestrator, get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.agents.orchestrator import AgentOrchestrator
+import google.generativeai as genai
+from app.config import settings
 
 router = APIRouter()
 
@@ -152,12 +155,11 @@ async def list_conversations(
     """
     List all conversations.
     """
-    from sqlalchemy import select
-    from app.database.models import Conversation
+    from sqlalchemy import text
     
-    query = select(Conversation).order_by(Conversation.updated_at.desc())
+    query = text("SELECT id, title, created_at, updated_at FROM conversations ORDER BY updated_at DESC")
     result = await db.execute(query)
-    conversations = result.scalars().all()
+    conversations = result.all()
     
     return [
         ConversationListItem(
@@ -174,13 +176,12 @@ async def get_conversation_history(
     conversation_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    from sqlalchemy import select
-    from app.database.models import Conversation, Message
+    from sqlalchemy import text
     
     # Get the conversation
-    query = select(Conversation).where(Conversation.id == conversation_id)
-    result = await db.execute(query)
-    conversation = result.scalar_one_or_none()
+    query = text("SELECT id, title, created_at, updated_at FROM conversations WHERE id = :id")
+    result = await db.execute(query, {"id": conversation_id})
+    conversation = result.fetchone()
     
     if not conversation:
         return ConversationHistory(
@@ -191,20 +192,20 @@ async def get_conversation_history(
         )
         
     # Get messages
-    msg_query = select(Message).where(Message.conversation_id == conversation_id).order_by(Message.created_at)
-    msg_result = await db.execute(msg_query)
-    messages = msg_result.scalars().all()
+    msg_query = text("SELECT id, role, content, sources_json, confidence, agent_steps_json, created_at FROM messages WHERE conversation_id = :conversation_id ORDER BY created_at")
+    msg_result = await db.execute(msg_query, {"conversation_id": conversation_id})
+    messages = msg_result.all()
     
     return ConversationHistory(
         conversation_id=conversation_id,
         messages=[
             ChatMessage(
-                role=m.role.value if hasattr(m.role, 'value') else m.role,
+                role=m.role,
                 content=m.content,
                 timestamp=m.created_at,
                 sources=json.loads(m.sources_json) if m.sources_json else None,
                 confidence=m.confidence,
-                agent_steps=json.loads(m.agent_steps_json) if getattr(m, 'agent_steps_json', None) else None
+                agent_steps=json.loads(m.agent_steps_json) if m.agent_steps_json else None
             ) for m in messages
         ],
         created_at=conversation.created_at,
@@ -220,16 +221,15 @@ async def delete_conversation(
     """
     Delete a conversation and its history.
     """
-    from sqlalchemy import delete
-    from app.database.models import Conversation, Message
+    from sqlalchemy import text
     
     # Delete associated messages first to satisfy foreign key constraint
-    message_query = delete(Message).where(Message.conversation_id == conversation_id)
-    await db.execute(message_query)
+    message_query = text("DELETE FROM messages WHERE conversation_id = :conversation_id")
+    await db.execute(message_query, {"conversation_id": conversation_id})
     
     # Delete the conversation itself
-    conversation_query = delete(Conversation).where(Conversation.id == conversation_id)
-    await db.execute(conversation_query)
+    conversation_query = text("DELETE FROM conversations WHERE id = :conversation_id")
+    await db.execute(conversation_query, {"conversation_id": conversation_id})
     await db.commit()
     
     return {"status": "deleted", "conversation_id": conversation_id}
@@ -244,26 +244,29 @@ async def update_conversation(
     """
     Update a conversation (e.g. rename it).
     """
-    from sqlalchemy import select
-    from app.database.models import Conversation
+    from sqlalchemy import text
     
-    # Get the conversation
-    query = select(Conversation).where(Conversation.id == conversation_id)
-    result = await db.execute(query)
-    conversation = result.scalar_one_or_none()
+    # Verify conversation exists
+    query = text("SELECT id FROM conversations WHERE id = :id")
+    result = await db.execute(query, {"id": conversation_id})
+    conversation = result.fetchone()
     
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
         
     # Update title
-    conversation.title = update_data.title
-    conversation.updated_at = datetime.utcnow()
+    update_stmt = text("UPDATE conversations SET title = :title, updated_at = :updated_at WHERE id = :id")
+    await db.execute(update_stmt, {
+        "title": update_data.title,
+        "updated_at": datetime.utcnow(),
+        "id": conversation_id
+    })
     await db.commit()
     
     return {
         "status": "updated",
         "conversation_id": conversation_id,
-        "title": conversation.title
+        "title": update_data.title
     }
 
 
@@ -282,6 +285,46 @@ async def get_suggestions():
             "Are there any anomalies in recent data?"
         ]
     }
+
+
+@router.post("/transcribe")
+async def transcribe_audio(file: UploadFile = File(...)):
+    """
+    Transcribe uploaded audio file using Gemini multimodal capabilities.
+    """
+    if not settings.GEMINI_API_KEY:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY is not configured")
+        
+    try:
+        # Read file bytes
+        audio_bytes = await file.read()
+        if not audio_bytes:
+            raise HTTPException(status_code=400, detail="Empty audio file")
+            
+        # Configure genai SDK
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        model = genai.GenerativeModel(settings.LLM_MODEL)
+        
+        # Execute transcription call in a thread pool (since native SDK generate_content is synchronous)
+        loop = asyncio.get_running_loop()
+        response = await loop.run_in_executor(
+            None,
+            lambda: model.generate_content([
+                "Transcribe this audio recording exactly. Respond with only the transcribed text. Do not add any headings, notes, greetings, annotations, or formatting—just return the spoken text verbatim. If the audio is silent or contains no speech, respond with a blank text.",
+                {
+                    "mime_type": file.content_type or "audio/webm",
+                    "data": audio_bytes
+                }
+            ])
+        )
+        
+        transcription = response.text.strip() if response.text else ""
+        return {"text": transcription}
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
 
 
 # WebSocket for Real-time Updates
