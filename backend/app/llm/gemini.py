@@ -10,9 +10,11 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from pydantic import BaseModel
 
 from app.config import settings
 from app.core.exceptions import LLMException
+from app.rag.embeddings import _embeddings_client
 
 
 class GeminiClient:
